@@ -150,7 +150,8 @@ textarea.big{min-height:200px;font-family:ui-monospace,monospace;font-size:12.5p
 .landing{position:fixed;inset:0;z-index:5;display:grid;place-items:center;text-align:center;padding:24px;color:#fff;
   background:linear-gradient(rgba(6,12,24,.5),rgba(6,12,24,.8)),url('homestay.jpg') center/cover no-repeat,linear-gradient(135deg,#0e3b2c,#0b1020)}
 .landing-in{max-width:620px}
-.landing .logo{margin:0 auto 18px;width:58px;height:58px;font-size:26px}
+.lg{display:block;width:120px;height:120px;border-radius:50%;margin:0 auto 18px;box-shadow:0 10px 40px rgba(0,0,0,.45)}
+.lg.sm{width:46px;height:46px;margin:0;box-shadow:0 4px 14px rgba(0,0,0,.3)}
 .landing h1{font-size:clamp(30px,6vw,52px);line-height:1.1;margin-bottom:26px;text-shadow:0 4px 24px rgba(0,0,0,.5)}
 .landing p{margin:0 0 16px;opacity:.9}
 @media(max-width:900px){.layout{grid-template-columns:1fr}.bento{grid-template-columns:repeat(2,1fr)}}
@@ -285,7 +286,7 @@ function render(){
   const tabs=[['kalendar','Kalendar'],['senarai','Tempahan'],['duit','Kewangan'],['urus','Pengurusan'],['setting','Tetapan']];
   app.innerHTML=`
   <header class="top">
-    <div class="brand"><div class="logo">H</div><div><h1>${esc(settings.name)}</h1><small>Sistem pengurusan tempahan</small></div></div>
+    <div class="brand"><img class="lg sm" src="logo.png" alt="" onerror="this.outerHTML='<div class=logo>H</div>'"><div><h1>${esc(settings.name)}</h1><small>Sistem pengurusan tempahan</small></div></div>
     <div class="row">
       <span class="pill">${sb?'● Sync langsung':'Mod setempat'}</span>
       <button class="icon" data-act="theme" title="Tukar tema">🌓</button>
@@ -306,7 +307,7 @@ function authMsg(t,ok){const m=$('#authmsg');if(m){m.textContent=t;m.style.color
 async function authCall(fn){try{return await fn()}catch(e){authMsg('Ralat sambungan: '+(e&&e.message||e));return null}}
 function landingHtml(){
   const denied=session&&allowed===false;
-  return`<div class="landing"><div class="landing-in"><div class="logo">D</div><h1>Selamat Datang ke<br>Homestay D'Hutan</h1>${allowed===null&&session?'':denied?'<p>Akaun ini tiada kebenaran untuk melihat tempahan.</p><button class="btn sec" data-act="logout">Log keluar</button>':'<button class="btn" data-act="login">Log masuk</button>'}</div></div>`;
+  return`<div class="landing"><div class="landing-in"><img class="lg" src="logo.png" alt="Homestay D'Hutan" onerror="this.style.display='none'"><h1>Selamat Datang ke<br>Homestay D'Hutan</h1>${allowed===null&&session?'':denied?'<p>Akaun ini tiada kebenaran untuk melihat tempahan.</p><button class="btn sec" data-act="logout">Log keluar</button>':'<button class="btn" data-act="login">Log masuk</button>'}</div></div>`;
 }
 async function afterAuth(){
   if(!session){allowed=false;bookings=[];expenses=[];render();return}
