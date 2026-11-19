@@ -98,6 +98,7 @@ header.top{display:flex;align-items:center;justify-content:space-between;gap:12p
 .badge.unpaid{background:rgba(255,178,61,.18);color:var(--amber)}
 .badge.deposit{background:rgba(53,224,255,.16);color:var(--cyan)}
 .badge.paid{background:rgba(198,255,61,.18);color:var(--lime)}
+.badge.post{background:rgba(129,140,248,.2);color:var(--acc2)}
 .badge.cancel{background:rgba(163,163,196,.18);color:var(--mut)}
 .badge.late{background:rgba(255,84,112,.2);color:var(--red)}
 [data-theme=light] .badge.paid{color:#3f7000}[data-theme=light] .badge.deposit{color:#007a99}[data-theme=light] .badge.unpaid{color:#b36b00}
@@ -177,8 +178,10 @@ const LS='homestay-hq-v1';
 const DEFAULT_SETTINGS={name:'Homestay Kami',units:['Seluruh rumah'],owners:['Saya','Partner'],wdRate:250,wkRate:320,depositAmt:150,ciTime:'15:00',coTime:'12:00'};
 let settings={...DEFAULT_SETTINGS};
 let bookings=[];
+let expenses=[];
+const CATS=['Pembersihan','Mesin rumput','Dobi','Lain-lain'];
 let view=(location.hash.slice(1)||'kalendar');
-if(!['kalendar','senarai','duit','setting'].includes(view))view='kalendar';
+if(!['kalendar','senarai','duit','urus','setting'].includes(view))view='kalendar';
 let cur=(()=>{const d=new Date();return{y:d.getFullYear(),m:d.getMonth()}})();
 let unitFilter='all',q='',stFilter='all';
 let sb=null,session=null,mode='local',draft=null,dlCap=null;
@@ -187,6 +190,7 @@ const canEdit=()=>!sb||!!session;
 
 /* ================= Business logic ================= */
 function roomCharge(b){
+  if(b.totalFixed!==null&&b.totalFixed!==undefined&&b.totalFixed!=='')return Number(b.totalFixed);
   const n=diffDays(b.ci,b.co); if(!(n>0))return 0;
   if(b.customRate!==null&&b.customRate!==''&&b.customRate!==undefined)return n*Number(b.customRate);
   let t=0; for(let i=0;i<n;i++){const d=dow(addDays(b.ci,i)); t+=(d===4||d===5)?settings.wkRate:settings.wdRate}
@@ -194,18 +198,20 @@ function roomCharge(b){
 }
 function calc(b){
   const room=roomCharge(b), total=Math.max(0,room+(+b.extra||0)+(+b.damage||0)-(+b.discount||0));
-  const paid=(b.payments||[]).reduce((a,p)=>a+(+p.amount||0),0);
-  return{room,total,paid,bal:total-paid,nights:Math.max(0,diffDays(b.ci,b.co))};
+  const pay=b.payments||[];
+  const paid=pay.filter(p=>p.type!=='Deposit').reduce((a,p)=>a+(+p.amount||0),0);
+  const dep=pay.filter(p=>p.type==='Deposit').reduce((a,p)=>a+(+p.amount||0),0);
+  return{room,total,paid,dep,bal:total-paid,nights:Math.max(0,diffDays(b.ci,b.co))};
 }
 function status(b){
   if(b.cancelled)return'cancel';
   const c=calc(b); if(c.paid<=0)return'unpaid';
   return c.paid>=c.total-.005?'paid':'deposit';
 }
-const ST={unpaid:'Belum bayar',deposit:'Deposit diterima',paid:'Lunas',cancel:'Dibatalkan'};
+const ST={unpaid:'Belum bayar',deposit:'Bayar separa',paid:'Lunas',cancel:'Dibatalkan'};
 const overdue=b=>{const s=status(b);return(s==='unpaid'||s==='deposit')&&calc(b).bal>0&&b.balanceDue&&b.balanceDue<today()};
-const badge=b=>`<span class="badge ${status(b)}">${ST[status(b)]}</span>${overdue(b)?' <span class="badge late">Lewat</span>':''}`;
-function overlapWith(b){return bookings.find(o=>o.id!==b.id&&!o.cancelled&&!b.cancelled&&o.unit===b.unit&&b.ci<o.co&&o.ci<b.co&&b.ci&&b.co)}
+const badge=b=>`${b.postponed&&!b.cancelled?'<span class="badge post">Ditunda</span> ':''}<span class="badge ${status(b)}">${ST[status(b)]}</span>${overdue(b)?' <span class="badge late">Lewat</span>':''}`;
+function overlapWith(b){return bookings.find(o=>o.id!==b.id&&!o.cancelled&&!b.cancelled&&!o.postponed&&!b.postponed&&o.unit===b.unit&&b.ci<o.co&&o.ci<b.co&&b.ci&&b.co)}
 function waLink(b){
   let p=(b.phone||'').replace(/\D/g,''); if(!p)return null; if(p[0]==='0')p='6'+p;
   const c=calc(b);
@@ -214,13 +220,14 @@ function waLink(b){
 }
 
 /* ================= Storage (Supabase / local) ================= */
-function saveLocal(){try{localStorage.setItem(LS,JSON.stringify({settings,bookings}))}catch(e){}}
-function loadLocal(){try{const s=JSON.parse(localStorage.getItem(LS)||'null');if(s){settings={...DEFAULT_SETTINGS,...s.settings};bookings=s.bookings||[]}}catch(e){}}
+function saveLocal(){try{localStorage.setItem(LS,JSON.stringify({settings,bookings,expenses}))}catch(e){}}
+function loadLocal(){try{const s=JSON.parse(localStorage.getItem(LS)||'null');if(s){settings={...DEFAULT_SETTINGS,...s.settings};bookings=s.bookings||[];expenses=s.expenses||[]}}catch(e){}}
 async function loadAll(){
   if(!sb){loadLocal();return}
-  const [b,s]=await Promise.all([sb.from('bookings').select('id,data'),sb.from('settings').select('data').eq('id',1).maybeSingle()]);
+  const [b,s,x]=await Promise.all([sb.from('bookings').select('id,data'),sb.from('settings').select('data').eq('id',1).maybeSingle(),sb.from('expenses').select('id,data')]);
   if(b.error)throw b.error;
   bookings=(b.data||[]).map(r=>({...r.data,id:r.id}));
+  if(!x.error)expenses=(x.data||[]).map(r=>({...r.data,id:r.id}));
   if(s.data&&s.data.data)settings={...DEFAULT_SETTINGS,...s.data.data};
 }
 async function dbSaveBooking(b){
@@ -232,6 +239,14 @@ async function dbDeleteBooking(id){
   if(!sb){saveLocal();return}
   const{error}=await sb.from('bookings').delete().eq('id',id); if(error)throw error;
 }
+async function dbSaveExpense(x){
+  if(!sb){saveLocal();return}
+  const{error}=await sb.from('expenses').upsert({id:x.id,data:x,updated_at:new Date().toISOString()}); if(error)throw error;
+}
+async function dbDeleteExpense(id){
+  if(!sb){saveLocal();return}
+  const{error}=await sb.from('expenses').delete().eq('id',id); if(error)throw error;
+}
 async function dbSaveSettings(){
   if(!sb){saveLocal();return}
   const{error}=await sb.from('settings').upsert({id:1,data:settings}); if(error)throw error;
@@ -240,7 +255,8 @@ function subscribe(){
   if(!sb)return;
   let t;const refresh=()=>{clearTimeout(t);t=setTimeout(async()=>{try{await loadAll();if(!draft)render()}catch(e){}},300)};
   sb.channel('hs').on('postgres_changes',{event:'*',schema:'public',table:'bookings'},refresh)
-    .on('postgres_changes',{event:'*',schema:'public',table:'settings'},refresh).subscribe();
+    .on('postgres_changes',{event:'*',schema:'public',table:'settings'},refresh)
+    .on('postgres_changes',{event:'*',schema:'public',table:'expenses'},refresh).subscribe();
 }
 
 /* ================= UI helpers ================= */
@@ -256,8 +272,9 @@ function render(){
   const app=$('#app');
   const act=bookings.filter(b=>!b.cancelled);
   const tot=act.reduce((a,b)=>a+calc(b).total,0), paid=act.reduce((a,b)=>a+calc(b).paid,0);
-  const nxt=act.filter(b=>b.ci>=today()).sort((a,b)=>a.ci<b.ci?-1:1)[0];
-  const tabs=[['kalendar','Kalendar'],['senarai','Tempahan'],['duit','Kewangan'],['setting','Tetapan']];
+  const live=act.filter(b=>!b.postponed), dep=act.reduce((a,b)=>a+calc(b).dep,0);
+  const nxt=live.filter(b=>b.ci>=today()).sort((a,b)=>a.ci<b.ci?-1:1)[0];
+  const tabs=[['kalendar','Kalendar'],['senarai','Tempahan'],['duit','Kewangan'],['urus','Pengurusan'],['setting','Tetapan']];
   app.innerHTML=`
   <header class="top">
     <div class="brand"><div class="logo">H</div><div><h1>${esc(settings.name)}</h1><small>Sistem pengurusan tempahan</small></div></div>
@@ -269,13 +286,13 @@ function render(){
     </div>
   </header>
   <section class="bento">
-    <div class="glass stat a"><div class="k">Tempahan aktif</div><div class="v">${act.length}</div><div class="s">${bookings.length-act.length} dibatalkan</div></div>
-    <div class="glass stat b"><div class="k">Diterima</div><div class="v">${fmt(paid)}</div><div class="s">dari ${fmt(tot)} jualan</div></div>
+    <div class="glass stat a"><div class="k">Tempahan aktif</div><div class="v">${live.length}</div><div class="s">${bookings.length-act.length} dibatalkan · ${act.length-live.length} ditunda</div></div>
+    <div class="glass stat b"><div class="k">Diterima</div><div class="v">${fmt(paid)}</div><div class="s">dari ${fmt(tot)} · deposit ${fmt(dep)}</div></div>
     <div class="glass stat c"><div class="k">Baki tertunggak</div><div class="v">${fmt(Math.max(0,tot-paid))}</div><div class="s">${act.filter(overdue).length} lewat bayar</div></div>
     <div class="glass stat d"><div class="k">Check-in seterusnya</div><div class="v">${nxt?dmy(nxt.ci).slice(0,5):'—'}</div><div class="s">${nxt?esc(nxt.name):'Tiada tempahan akan datang'}</div></div>
   </section>
   <nav class="glass tabs">${tabs.map(([k,l])=>`<button class="tab ${view===k?'on':''}" data-act="tab" data-v="${k}">${l}</button>`).join('')}</nav>
-  ${view==='kalendar'?calView():view==='senarai'?listView():view==='duit'?moneyView():settingView()}`;
+  ${view==='kalendar'?calView():view==='senarai'?listView():view==='duit'?moneyView():view==='urus'?urusView():settingView()}`;
 }
 function authMsg(t,ok){const m=$('#authmsg');if(m){m.textContent=t;m.style.color=ok?'var(--lime)':'var(--red)'}toast(t)}
 async function authCall(fn){try{return await fn()}catch(e){authMsg('Ralat sambungan: '+(e&&e.message||e));return null}}
@@ -295,7 +312,7 @@ function calView(){
   const dim=new Date(Date.UTC(cur.y,cur.m+1,0)).getUTCDate();
   const weeks=Math.ceil((off+dim)/7);
   const start=addDays(first,-off);
-  const list=bookings.filter(b=>!b.cancelled&&(unitFilter==='all'||b.unit===unitFilter));
+  const list=bookings.filter(b=>!b.cancelled&&!b.postponed&&(unitFilter==='all'||b.unit===unitFilter));
   let cells='';
   for(let i=0;i<weeks*7;i++){
     const d=addDays(start,i), inM=d.slice(5,7)==pad(cur.m+1);
@@ -303,7 +320,7 @@ function calView(){
     const chips=[...occ.map(b=>`<div class="chip ${status(b)}" data-act="edit" data-id="${b.id}" title="${esc(b.name)}">${b.ci===d?'→ ':''}${esc(b.name)}</div>`),...outs.map(b=>`<div class="chip outc" data-act="edit" data-id="${b.id}">← ${esc(b.name)}</div>`)];
     cells+=`<div class="day ${inM?'':'out'} ${d===today()?'today':''}" data-act="newday" data-date="${d}"><span class="n">${+d.slice(8)}</span>${chips.slice(0,3).join('')}${chips.length>3?`<span class="more">+${chips.length-3} lagi</span>`:''}</div>`;
   }
-  const ups=bookings.filter(b=>!b.cancelled&&b.co>=today()).sort((a,b)=>a.ci<b.ci?-1:1).slice(0,6);
+  const ups=bookings.filter(b=>!b.cancelled&&!b.postponed&&b.co>=today()).sort((a,b)=>a.ci<b.ci?-1:1).slice(0,6);
   return`<div class="layout"><div class="glass cal">
     <div class="calhead"><div class="row"><button class="icon" data-act="prev">‹</button><h2>${MONTHS[cur.m]} ${cur.y}</h2><button class="icon" data-act="next">›</button><button class="btn sec sm" data-act="tdy">Hari ni</button></div>
     ${activeUnits().length>1?`<select style="width:auto" id="unitSel"><option value="all">Semua unit</option>${activeUnits().map(u=>`<option ${unitFilter===u?'selected':''}>${esc(u)}</option>`).join('')}</select>`:''}</div>
@@ -316,19 +333,46 @@ function calView(){
 function listView(){
   let l=[...bookings].sort((a,b)=>a.ci<b.ci?1:-1);
   if(q){const s=q.toLowerCase();l=l.filter(b=>(b.name+' '+b.phone+' '+(b.source||'')+' '+(b.unit||'')).toLowerCase().includes(s))}
-  if(stFilter!=='all')l=l.filter(b=>status(b)===stFilter);
-  const rows=l.map(b=>{const c=calc(b),w=waLink(b);return`<tr class="rw" data-act="edit" data-id="${b.id}"><td><b>${esc(b.name)}</b><small>${esc(b.phone||'-')}</small></td><td>${dmy(b.ci)} → ${dmy(b.co)}<small>${c.nights} malam · ${esc(b.unit)}</small></td><td class="num">${fmt(c.total)}</td><td class="num">${fmt(c.paid)}</td><td class="num"><b>${fmt(c.bal)}</b></td><td>${badge(b)}</td><td>${w?`<a class="btn sm sec" href="${w}" target="_blank" rel="noopener" data-stop="1">WhatsApp</a>`:''}</td></tr>`}).join('');
-  return`<div class="glass" style="padding:14px"><div class="tools"><input id="q" placeholder="Cari nama / telefon / unit" value="${esc(q)}"><select id="stf"><option value="all">Semua status</option>${Object.entries(ST).map(([k,v])=>`<option value="${k}" ${stFilter===k?'selected':''}>${v}</option>`).join('')}</select></div>
-  ${l.length?`<div class="tablewrap"><table><thead><tr><th>Penyewa</th><th>Tarikh</th><th class="num">Jumlah</th><th class="num">Dibayar</th><th class="num">Baki</th><th>Status</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`:`<div class="empty">Tiada tempahan padan. Tekan <b>＋ Tempahan baru</b>.</div>`}</div>`;
+  if(stFilter==='postponed')l=l.filter(b=>b.postponed&&!b.cancelled);else if(stFilter!=='all')l=l.filter(b=>status(b)===stFilter);
+  const rows=l.map(b=>{const c=calc(b),w=waLink(b);return`<tr class="rw" data-act="edit" data-id="${b.id}"><td><b>${esc(b.name)}</b><small>${esc(b.phone||'-')}</small></td><td>${dmy(b.ci)} → ${dmy(b.co)}<small>${c.nights} malam · ${esc(b.unit)}</small></td><td class="num">${fmt(c.total)}</td><td class="num">${fmt(c.paid)}</td><td class="num">${c.dep>0?fmt(c.dep)+' ✓':'-'}</td><td class="num"><b>${fmt(c.bal)}</b></td><td>${badge(b)}</td><td>${w?`<a class="btn sm sec" href="${w}" target="_blank" rel="noopener" data-stop="1">WhatsApp</a>`:''}</td></tr>`}).join('');
+  return`<div class="glass" style="padding:14px"><div class="tools"><input id="q" placeholder="Cari nama / telefon / unit" value="${esc(q)}"><select id="stf"><option value="all">Semua status</option>${Object.entries(ST).map(([k,v])=>`<option value="${k}" ${stFilter===k?'selected':''}>${v}</option>`).join('')}<option value="postponed" ${stFilter==='postponed'?'selected':''}>Ditunda</option></select></div>
+  ${l.length?`<div class="tablewrap"><table><thead><tr><th>Penyewa</th><th>Tarikh</th><th class="num">Jumlah</th><th class="num">Dibayar</th><th class="num">Deposit</th><th class="num">Baki</th><th>Status</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`:`<div class="empty">Tiada tempahan padan. Tekan <b>＋ Tempahan baru</b>.</div>`}</div>`;
 }
 
 function moneyView(){
   const m={};
   bookings.filter(b=>!b.cancelled).forEach(b=>{const k=b.ci.slice(0,7),c=calc(b);m[k]=m[k]||{n:0,nights:0,total:0,paid:0};m[k].n++;m[k].nights+=c.nights;m[k].total+=c.total;m[k].paid+=c.paid});
   const keys=Object.keys(m).sort().reverse();
-  const forf=bookings.filter(b=>b.cancelled).reduce((a,b)=>a+calc(b).paid,0);
+  const forf=bookings.filter(b=>b.cancelled).reduce((a,b)=>a+calc(b).dep,0), held=bookings.filter(b=>!b.cancelled).reduce((a,b)=>a+calc(b).dep,0);
   return`<div class="glass" style="padding:14px"><h3 style="margin:6px 8px 10px">Rekod bulanan</h3>${keys.length?`<div class="tablewrap"><table><thead><tr><th>Bulan (check-in)</th><th class="num">Booking</th><th class="num">Malam</th><th class="num">Jualan</th><th class="num">Diterima</th><th class="num">Tertunggak</th></tr></thead><tbody>${keys.map(k=>`<tr><td><b>${MONTHS[+k.slice(5)-1]} ${k.slice(0,4)}</b></td><td class="num">${m[k].n}</td><td class="num">${m[k].nights}</td><td class="num">${fmt(m[k].total)}</td><td class="num">${fmt(m[k].paid)}</td><td class="num"><b>${fmt(m[k].total-m[k].paid)}</b></td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">Belum ada data.</div>'}
-  <div class="calc" style="margin:12px 8px 6px"><div class="l"><span>Deposit hangus (tempahan dibatalkan)</span><b>${fmt(forf)}</b></div></div></div>`;
+  <div class="calc" style="margin:12px 8px 6px"><div class="l"><span>Deposit dipegang (tempahan aktif)</span><b>${fmt(held)}</b></div><div class="l"><span>Deposit hangus (tempahan dibatalkan)</span><b>${fmt(forf)}</b></div></div></div>`;
+}
+
+
+function urusView(){
+  const sum=a=>a.reduce((s,e)=>s+(+e.amount||0),0);
+  const mk=today().slice(0,7);
+  const totalAll=sum(expenses), totalMonth=sum(expenses.filter(e=>(e.date||'').slice(0,7)===mk));
+  const income=bookings.filter(b=>!b.cancelled).reduce((a,b)=>a+calc(b).paid,0)+bookings.filter(b=>b.cancelled).reduce((a,b)=>a+calc(b).dep,0);
+  const months=[...new Set(expenses.map(e=>(e.date||'').slice(0,7)).filter(Boolean))].sort().reverse();
+  const byMonth=months.map(m=>{const l=expenses.filter(e=>(e.date||'').slice(0,7)===m);return`<tr><td><b>${MONTHS[+m.slice(5)-1]} ${m.slice(0,4)}</b></td>${CATS.map(c=>`<td class="num">${fmt(sum(l.filter(e=>e.cat===c)))}</td>`).join('')}<td class="num"><b>${fmt(sum(l))}</b></td></tr>`}).join('');
+  const bk=[...bookings].sort((a,b)=>a.ci<b.ci?1:-1);
+  const form=canEdit()?`<form id="expForm" class="glass" style="padding:16px;margin-bottom:14px"><h3 style="margin-bottom:10px">Catat kos</h3><div class="fg">
+    <div><label>Tarikh</label><input type="date" id="x_date" value="${today()}" required></div>
+    <div><label>Kategori</label><select id="x_cat">${CATS.map(c=>`<option>${c}</option>`).join('')}</select></div>
+    <div><label>Jumlah (RM)</label><input type="number" id="x_amt" min="0" step="0.01" required placeholder="0.00"></div>
+    <div><label>Dibayar oleh</label><select id="x_by">${(settings.owners||[]).map(o=>`<option>${esc(o)}</option>`).join('')}</select></div>
+    <div><label>Untuk tempahan (pilihan)</label><select id="x_bk"><option value="">Umum / tiada</option>${bk.map(b=>`<option value="${b.id}">${esc(b.name)} · ${dmy(b.ci)}</option>`).join('')}</select></div>
+    <div><label>Nota</label><input id="x_note" placeholder="Cth: upah cuci selepas check-out"></div></div>
+    <div class="row" style="margin-top:12px"><button class="btn" type="submit">Simpan kos</button></div></form>`:'';
+  const rows=[...expenses].sort((a,b)=>(a.date||'')<(b.date||'')?1:-1).map(e=>{const b=bookings.find(x=>x.id===e.bookingId);return`<tr><td>${dmy(e.date)}</td><td><span class="badge post">${esc(e.cat)}</span></td><td>${esc(e.note||'-')}${b?`<small>${esc(b.name)} · ${dmy(b.ci)}</small>`:''}</td><td>${esc(e.by||'-')}</td><td class="num"><b>${fmt(e.amount)}</b></td><td>${canEdit()?`<button class="btn sm sec" data-act="delExp" data-id="${e.id}">Padam</button>`:''}</td></tr>`}).join('');
+  return`<section class="bento" style="grid-template-columns:repeat(3,1fr)">
+    <div class="glass stat c"><div class="k">Kos bulan ini</div><div class="v">${fmt(totalMonth)}</div><div class="s">${MONTHS[+mk.slice(5)-1]}</div></div>
+    <div class="glass stat d"><div class="k">Jumlah kos</div><div class="v">${fmt(totalAll)}</div><div class="s">${expenses.length} rekod</div></div>
+    <div class="glass stat b"><div class="k">Untung bersih</div><div class="v">${fmt(income-totalAll)}</div><div class="s">sewa diterima + deposit hangus − kos</div></div></section>
+  ${form}
+  <div class="glass" style="padding:14px;margin-bottom:14px"><h3 style="margin:6px 8px 10px">Kos mengikut bulan</h3>${months.length?`<div class="tablewrap"><table><thead><tr><th>Bulan</th>${CATS.map(c=>`<th class="num">${c}</th>`).join('')}<th class="num">Jumlah</th></tr></thead><tbody>${byMonth}</tbody></table></div>`:'<div class="empty">Belum ada kos dicatat.</div>'}</div>
+  <div class="glass" style="padding:14px"><h3 style="margin:6px 8px 10px">Senarai kos</h3>${expenses.length?`<div class="tablewrap"><table><thead><tr><th>Tarikh</th><th>Kategori</th><th>Butiran</th><th>Oleh</th><th class="num">Jumlah</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`:'<div class="empty">Tiada rekod.</div>'}</div>`;
 }
 
 function settingView(){
@@ -337,7 +381,7 @@ function settingView(){
   <div class="full"><label>Nama homestay</label><input id="s_name" value="${esc(s.name)}"></div>
   <div><label>Kadar hari biasa / malam (RM)</label><input id="s_wd" type="number" min="0" step="1" value="${s.wdRate}"></div>
   <div><label>Kadar Jum &amp; Sab / malam (RM)</label><input id="s_wk" type="number" min="0" step="1" value="${s.wkRate}"></div>
-  <div><label>Deposit tempahan (RM)</label><input id="s_dp" type="number" min="0" value="${s.depositAmt}"></div>
+  <div><label>Deposit (RM, asing daripada sewa)</label><input id="s_dp" type="number" min="0" value="${s.depositAmt}"></div>
     <div><label>Masa check-in</label><input id="s_ci" type="time" value="${s.ciTime}"></div>
   <div><label>Masa check-out</label><input id="s_co" type="time" value="${s.coTime}"></div>
   <div class="full"><label>Unit / bilik (asing dengan koma)</label><input id="s_units" value="${esc(activeUnits().join(', '))}"></div>
@@ -348,7 +392,7 @@ function settingView(){
 /* ================= Booking modal ================= */
 function newBooking(pre={}){
   const ci=pre.ci||today();
-  return{id:uid(),name:'',phone:'',ic:'',ci,co:pre.co||addDays(ci,1),ciTime:settings.ciTime,coTime:settings.coTime,adults:2,kids:0,unit:pre.unit||(unitFilter!=='all'?unitFilter:activeUnits()[0]),customRate:null,extra:0,extraNote:'',discount:0,damage:0,payments:[],balanceDue:'',source:'WhatsApp',handler:(settings.owners||[])[0]||'',notes:'',cancelled:false,created:today()};
+  return{id:uid(),name:'',phone:'',ic:'',ci,co:pre.co||addDays(ci,1),ciTime:settings.ciTime,coTime:settings.coTime,adults:2,kids:0,unit:pre.unit||(unitFilter!=='all'?unitFilter:activeUnits()[0]),customRate:null,extra:0,extraNote:'',discount:0,damage:0,totalFixed:null,postponed:false,payments:[],balanceDue:'',source:'WhatsApp',handler:(settings.owners||[])[0]||'',notes:'',cancelled:false,created:today()};
 }
 function openModal(b,isNew){
   draft=JSON.parse(JSON.stringify(b)); draft._new=isNew;
@@ -371,6 +415,7 @@ function openModal(b,isNew){
     <div class="full"><label>Unit / bilik</label><select id="f_unit">${sel(activeUnits(),d.unit)}</select></div></div></div>
   <div class="blk"><h4>Harga</h4><div class="fg">
     <div><label>Harga/malam manual (kosong = auto)</label><input type="number" id="f_rate" min="0" value="${d.customRate??''}" placeholder="Auto ikut setting"></div>
+    <div><label>Jumlah sewa manual (RM, kosong = auto)</label><input type="number" id="f_tot" min="0" value="${d.totalFixed??''}"></div>
     <div><label>Caj tambahan (RM)</label><input type="number" id="f_extra" min="0" value="${d.extra}"></div>
     <div><label>Nota caj (cth: BBQ)</label><input id="f_extran" value="${esc(d.extraNote)}"></div>
     <div><label>Caj kerosakan (RM)</label><input type="number" id="f_dmg" min="0" value="${d.damage||0}"></div>
@@ -382,7 +427,8 @@ function openModal(b,isNew){
     </div>
     <div class="calc" id="calc"></div></div>
   <div class="blk"><h4>Nota</h4><textarea id="f_notes" rows="3" placeholder="Permintaan khas, masa sampai, dll.">${esc(d.notes)}</textarea>
-    <label style="display:flex;gap:8px;align-items:center;margin-top:10px;font-weight:600"><input type="checkbox" id="f_cancel" style="width:auto" ${d.cancelled?'checked':''}> Tempahan dibatalkan</label></div>
+    <label style="display:flex;gap:8px;align-items:center;margin-top:10px;font-weight:600"><input type="checkbox" id="f_cancel" style="width:auto" ${d.cancelled?'checked':''}> Tempahan dibatalkan</label>
+    <label style="display:flex;gap:8px;align-items:center;margin-top:8px;font-weight:600"><input type="checkbox" id="f_post" style="width:auto" ${d.postponed?'checked':''}> Ditunda (tarikh baharu belum ditetapkan)</label></div>
   <div class="mfoot"><div>${isNew?'':'<button type="button" class="btn danger" data-act="del">Padam</button>'}</div><div class="row">${waLink(d)&&!isNew?`<a class="btn sec" href="${waLink(d)}" target="_blank" rel="noopener">WhatsApp</a>`:''}<button type="button" class="btn sec" data-act="close">Batal</button><button type="submit" class="btn">Simpan</button></div></div></form></div>`;
   renderPays(); updateCalc();
   if(!canEdit()){
@@ -392,7 +438,7 @@ function openModal(b,isNew){
   }
 }
 function renderPays(){
-  const mk=['Pindahan bank','DuitNow / QR','Tunai','Kad','Lain-lain'], tp=['Deposit','Bayaran penuh','Baki','Lain-lain'];
+  const mk=['Pindahan bank','DuitNow / QR','Tunai','Kad','Lain-lain','-'], tp=['Deposit','Bayaran penuh','Baki','Lain-lain'];
   const o=(a,v)=>a.map(x=>`<option ${x===v?'selected':''}>${x}</option>`).join('');
   $('#pays').innerHTML=draft.payments.length?draft.payments.map(p=>`<div class="pay-row" data-id="${p.id}"><input type="date" class="p-date" value="${p.date}"><select class="p-type">${o(tp,p.type)}</select><input type="number" class="p-amt" min="0" step="0.01" value="${p.amount}" placeholder="RM"><select class="p-method">${o(mk,p.method)}</select>${canEdit()?`<button type="button" class="icon" data-act="rmPay" data-id="${p.id}">✕</button>`:'<span></span>'}</div>`).join(''):'<div style="color:var(--mut);font-size:13.5px">Belum ada bayaran. Tambah deposit atau bayaran di bawah.</div>';
 }
@@ -401,7 +447,7 @@ function readForm(){
   d.name=g('f_name').value.trim();d.phone=g('f_phone').value.trim();d.ic=g('f_ic').value.trim();d.source=g('f_src').value;d.handler=g('f_hand').value;
   d.ci=g('f_ci').value;d.co=g('f_co').value;d.ciTime=g('f_cit').value;d.coTime=g('f_cot').value;d.adults=+g('f_ad').value||0;d.kids=+g('f_kid').value||0;d.unit=g('f_unit').value;
   const cr=g('f_rate').value;d.customRate=cr===''?null:+cr;d.extra=+g('f_extra').value||0;d.extraNote=g('f_extran').value;d.discount=+g('f_disc').value||0;
-  d.balanceDue=g('f_due').value;d.damage=+g('f_dmg').value||0;d.notes=g('f_notes').value;d.cancelled=g('f_cancel').checked;
+  d.balanceDue=g('f_due').value;d.damage=+g('f_dmg').value||0;d.notes=g('f_notes').value;d.cancelled=g('f_cancel').checked;d.postponed=g('f_post').checked;d.totalFixed=g('f_tot').value===''?null:+g('f_tot').value;
   d.payments=[...document.querySelectorAll('.pay-row')].map(r=>({id:r.dataset.id,date:r.querySelector('.p-date').value,type:r.querySelector('.p-type').value,method:r.querySelector('.p-method').value,amount:+r.querySelector('.p-amt').value||0}));
 }
 function updateCalc(){
@@ -409,9 +455,9 @@ function updateCalc(){
   $('#calc').innerHTML=`<div class="l"><span>Penginapan (${c.nights} malam)</span><b>${fmt(c.room)}</b></div>
   <div class="l"><span>Tambahan + kerosakan − diskaun</span><b>${fmt((+draft.extra||0)+(+draft.damage||0)-(+draft.discount||0))}</b></div>
   <div class="l tot"><span>Jumlah</span><b>${fmt(c.total)}</b></div>
-  <div class="l"><span>Dah bayar</span><b>${fmt(c.paid)}</b></div>
+  <div class="l"><span>Dah bayar (sewa)</span><b>${fmt(c.paid)}</b></div>
   <div class="l"><span>Baki</span><b>${fmt(c.bal)}</b></div>
-  <div class="l"><span>Deposit tempahan (ditolak daripada jumlah)</span><b>${fmt(Math.min(settings.depositAmt,c.total))}</b></div>
+  <div class="l"><span>Deposit dipegang (asing daripada sewa)</span><b>${fmt(c.dep)}</b></div>
   <div class="bar"><i style="width:${pct}%"></i></div>
   ${diffDays(draft.ci||'2000-01-01',draft.co||'2000-01-01')<=0?'<div class="warn">⚠️ Tarikh check-out mesti selepas check-in.</div>':''}
   ${ov?`<div class="warn">⚠️ Bertindih dengan booking <b>${esc(ov.name)}</b> (${dmy(ov.ci)} → ${dmy(ov.co)}) di unit sama!</div>`:''}`;
@@ -432,9 +478,9 @@ function closeModal(){draft=null;$('#modal-root').innerHTML=''}
 
 /* ================= Export ================= */
 function csvText(){
-  const h=['Nama','Telefon','KP/Pasport','Unit','Check-in','Check-out','Malam','Dewasa','Kanak-kanak','Jumlah','Dibayar','Baki','Baki sebelum','Status','Caj kerosakan','Sumber','Diuruskan oleh','Nota'];
+  const h=['Nama','Telefon','KP/Pasport','Unit','Check-in','Check-out','Malam','Dewasa','Kanak-kanak','Jumlah','Dibayar','Baki','Baki sebelum','Status','Deposit','Ditunda','Caj kerosakan','Sumber','Diuruskan oleh','Nota'];
   const q=v=>`"${String(v??'').replace(/"/g,'""')}"`;
-  const r=[...bookings].sort((a,b)=>a.ci<b.ci?-1:1).map(b=>{const c=calc(b);return[b.name,b.phone,b.ic,b.unit,b.ci,b.co,c.nights,b.adults,b.kids,c.total,c.paid,c.bal,b.balanceDue,ST[status(b)],b.damage,b.source,b.handler,b.notes].map(q).join(',')});
+  const r=[...bookings].sort((a,b)=>a.ci<b.ci?-1:1).map(b=>{const c=calc(b);return[b.name,b.phone,b.ic,b.unit,b.ci,b.co,c.nights,b.adults,b.kids,c.total,c.paid,c.bal,b.balanceDue,ST[status(b)],c.dep,b.postponed?'Ya':'',b.damage,b.source,b.handler,b.notes].map(q).join(',')});
   return[h.map(q).join(','),...r].join('\n');
 }
 function openText(title,text,filename){
@@ -466,7 +512,7 @@ document.addEventListener('click',async e=>{
   }
   else if(a==='addDep'||a==='addBal'||a==='addPay'){
     readForm();const c=calc(draft);
-    const amt=a==='addDep'?Math.min(settings.depositAmt,Math.max(0,c.total)):a==='addBal'?Math.max(0,c.bal):0;
+    const amt=a==='addDep'?settings.depositAmt:a==='addBal'?Math.max(0,c.bal):0;
     draft.payments.push({id:uid(),date:today(),type:a==='addDep'?'Deposit':a==='addBal'?(c.paid>0?'Baki':'Bayaran penuh'):'Lain-lain',method:'Pindahan bank',amount:amt});
     renderPays();updateCalc();
   }
@@ -476,8 +522,13 @@ document.addEventListener('click',async e=>{
     const did=draft.id;bookings=bookings.filter(b=>b.id!==did);closeModal();render();
     try{await dbDeleteBooking(did);toast('Dipadam')}catch(err){toast('Gagal padam: '+err.message);await loadAll().catch(()=>{});render()}
   }
+  else if(a==='delExp'){
+    if(el.dataset.sure!=='1'){el.dataset.sure='1';el.textContent='Pasti?';return}
+    expenses=expenses.filter(x=>x.id!==id);render();
+    try{await dbDeleteExpense(id);toast('Kos dipadam')}catch(err){toast('Gagal padam: '+err.message);await loadAll().catch(()=>{});render()}
+  }
   else if(a==='csv')openText('Export CSV',csvText(),'tempahan-homestay.csv');
-  else if(a==='json')openText('Backup JSON',JSON.stringify({settings,bookings},null,2),'backup-homestay.json');
+  else if(a==='json')openText('Backup JSON',JSON.stringify({settings,bookings,expenses},null,2),'backup-homestay.json');
   else if(a==='copyExp'){const t=$('#exp');t.select();try{await navigator.clipboard.writeText(t.value);toast('Disalin')}catch(_){document.execCommand&&document.execCommand('copy');toast('Disalin (atau tekan Ctrl+C)')}}
   else if(a==='dlExp'){try{await dlCap.save({filename:el.dataset.fn,data:$('#exp').value})}catch(_){}}
 });
@@ -502,6 +553,14 @@ document.addEventListener('submit',async e=>{
     if(r.error){authMsg(r.error.message==='Invalid login credentials'?'Emel atau kata laluan salah, atau akaun belum didaftar. Jika belum, tekan Daftar akaun.':r.error.message);return}
     session=r.data.session;closeModal();render();toast('Log masuk berjaya');
   }
+  else if(e.target.id==='expForm'){
+    if(!canEdit())return;
+    const g=id=>$('#'+id).value, amount=+g('x_amt');
+    if(!(amount>0)){toast('Isi jumlah kos');return}
+    const x={id:uid(),date:g('x_date')||today(),cat:g('x_cat'),amount,note:g('x_note').trim(),by:g('x_by'),bookingId:g('x_bk')||''};
+    expenses.push(x);render();
+    try{await dbSaveExpense(x);toast('Kos disimpan')}catch(err){toast('Gagal simpan: '+err.message);await loadAll().catch(()=>{});render()}
+  }
   else if(e.target.id==='newPassForm'){
     const{error}=await sb.auth.updateUser({password:$('#np').value});
     if(error){toast(error.message);return}
@@ -515,7 +574,7 @@ document.addEventListener('submit',async e=>{
   }
 });
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('#modal-root').innerHTML)closeModal()});
-window.addEventListener('hashchange',()=>{const v=location.hash.slice(1);if(['kalendar','senarai','duit','setting'].includes(v)&&v!==view){view=v;render()}});
+window.addEventListener('hashchange',()=>{const v=location.hash.slice(1);if(['kalendar','senarai','duit','urus','setting'].includes(v)&&v!==view){view=v;render()}});
 
 /* ================= Boot ================= */
 async function boot2(){
