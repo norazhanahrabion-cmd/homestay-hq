@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Homestay HQ · Tempahan</title>
+<title>Homestay D'Hutan · Tempahan</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -175,7 +175,7 @@ const uid=()=>(crypto.randomUUID?crypto.randomUUID():'xxxxxxxx-xxxx-4xxx-yxxx-xx
 const LS='homestay-hq-v1';
 
 /* ================= State ================= */
-const DEFAULT_SETTINGS={name:'Homestay Kami',units:['Seluruh rumah'],owners:['Saya','Partner'],wdRate:300,wkRate:300,depositAmt:150,ciTime:'15:00',coTime:'12:00'};
+const DEFAULT_SETTINGS={name:'Homestay D\'Hutan',units:['Seluruh rumah'],owners:['Saya','Partner'],wdRate:300,wkRate:300,depositAmt:150,ciTime:'15:00',coTime:'12:00'};
 let settings={...DEFAULT_SETTINGS};
 let bookings=[];
 let expenses=[];
@@ -568,7 +568,7 @@ document.addEventListener('submit',async e=>{
   else if(e.target.id==='setForm'){
     if(!canEdit())return;
     const v=id=>$('#'+id).value, list=s=>s.split(',').map(x=>x.trim()).filter(Boolean);
-    settings={...settings,name:v('s_name')||'Homestay Kami',wdRate:+v('s_wd')||0,wkRate:+v('s_wd')||0,depositAmt:+v('s_dp')||0,ciTime:v('s_ci'),coTime:v('s_co'),units:list(v('s_units')).length?list(v('s_units')):['Seluruh rumah'],owners:list(v('s_owners'))};
+    settings={...settings,name:v('s_name')||'Homestay D\'Hutan',wdRate:+v('s_wd')||0,wkRate:+v('s_wd')||0,depositAmt:+v('s_dp')||0,ciTime:v('s_ci'),coTime:v('s_co'),units:list(v('s_units')).length?list(v('s_units')):['Seluruh rumah'],owners:list(v('s_owners'))};
     render();try{await dbSaveSettings();toast('Tetapan disimpan')}catch(err){toast('Gagal simpan: '+err.message)}
   }
 });
