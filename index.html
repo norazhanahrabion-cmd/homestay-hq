@@ -280,7 +280,11 @@ function render(){
 function openLogin(){
   $('#modal-root').innerHTML=`<div class="overlay" data-act="closeov"><div class="modal" style="max-width:420px" onclick="event.stopPropagation()"><div class="row" style="justify-content:space-between"><h2>Log masuk</h2><button class="icon" data-act="close">✕</button></div><p style="color:var(--mut);margin:6px 0 0">Anda boleh lihat tempahan tanpa log masuk. Log masuk hanya untuk tambah / edit (emel yang dibenarkan sahaja).</p>
 <form id="loginForm"><input type="email" id="le" placeholder="Emel" required autocomplete="email" style="margin-top:12px"><input type="password" id="lp" placeholder="Kata laluan (min 6 aksara)" required minlength="6" autocomplete="current-password" style="margin-top:10px">
-<div class="row" style="margin-top:14px"><button class="btn" type="submit">Log masuk</button><button class="btn sec" type="button" data-act="signup">Daftar akaun</button></div></form></div></div>`;
+<div class="row" style="margin-top:14px"><button class="btn" type="submit">Log masuk</button><button class="btn sec" type="button" data-act="signup">Daftar akaun</button></div>
+<p style="margin:12px 0 0;font-size:13.5px"><a href="#" data-act="forgot" style="color:var(--acc2)">Lupa kata laluan?</a></p></form></div></div>`;
+}
+function openNewPass(){
+  $('#modal-root').innerHTML=`<div class="overlay"><div class="modal" style="max-width:420px"><h2>Tetapkan kata laluan baharu</h2><form id="newPassForm"><input type="password" id="np" placeholder="Kata laluan baharu (min 6 aksara)" required minlength="6" autocomplete="new-password" style="margin-top:12px"><div class="row" style="margin-top:14px"><button class="btn" type="submit">Simpan kata laluan</button></div></form></div></div>`;
 }
 
 function calView(){
@@ -451,6 +455,7 @@ document.addEventListener('click',async e=>{
   else if(a==='close'||a==='closeov')closeModal();
   else if(a==='theme'){const t=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=t;try{localStorage.setItem('hs-theme',t)}catch(_){}}
   else if(a==='logout'){await sb.auth.signOut();session=null;render();toast('Dah log keluar')}
+  else if(a==='forgot'){e.preventDefault();const em=$('#le').value.trim();if(!em){toast('Taip emel anda dulu di ruang Emel');return}const{error}=await sb.auth.resetPasswordForEmail(em,{redirectTo:location.href.split('#')[0]});toast(error?error.message:'Pautan tetapan semula dihantar ke emel anda')}
   else if(a==='signup'){const em=$('#le').value,pw=$('#lp').value;if(!em||pw.length<6){toast('Isi emel & kata laluan (min 6)');return}const{error}=await sb.auth.signUp({email:em,password:pw});toast(error?error.message:'Akaun dibuat. Semak emel jika perlu sahkan, kemudian log masuk.')}
   else if(a==='addDep'||a==='addBal'||a==='addPay'){
     readForm();const c=calc(draft);
@@ -488,6 +493,11 @@ document.addEventListener('submit',async e=>{
     if(error){toast(error.message);return}
     session=data.session;closeModal();render();toast('Log masuk berjaya');
   }
+  else if(e.target.id==='newPassForm'){
+    const{error}=await sb.auth.updateUser({password:$('#np').value});
+    if(error){toast(error.message);return}
+    closeModal();render();toast('Kata laluan dikemas kini');
+  }
   else if(e.target.id==='setForm'){
     if(!canEdit())return;
     const v=id=>$('#'+id).value, list=s=>s.split(',').map(x=>x.trim()).filter(Boolean);
@@ -509,7 +519,7 @@ async function boot2(){
   if(cfg.SUPABASE_URL&&cfg.SUPABASE_ANON_KEY&&window.supabase){
     sb=window.supabase.createClient(cfg.SUPABASE_URL,cfg.SUPABASE_ANON_KEY);mode='supabase';
     const{data}=await sb.auth.getSession();session=data.session;
-    sb.auth.onAuthStateChange((_ev,s)=>{session=s});
+    sb.auth.onAuthStateChange((ev,s)=>{session=s;if(ev==='PASSWORD_RECOVERY')openNewPass()});
     await boot2();return;
   }
   loadLocal();render();
