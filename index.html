@@ -175,7 +175,7 @@ const uid=()=>(crypto.randomUUID?crypto.randomUUID():'xxxxxxxx-xxxx-4xxx-yxxx-xx
 const LS='homestay-hq-v1';
 
 /* ================= State ================= */
-const DEFAULT_SETTINGS={name:'Homestay Kami',units:['Seluruh rumah'],owners:['Saya','Partner'],wdRate:250,wkRate:320,depositAmt:150,ciTime:'15:00',coTime:'12:00'};
+const DEFAULT_SETTINGS={name:'Homestay Kami',units:['Seluruh rumah'],owners:['Saya','Partner'],wdRate:300,wkRate:300,depositAmt:150,ciTime:'15:00',coTime:'12:00'};
 let settings={...DEFAULT_SETTINGS};
 let bookings=[];
 let expenses=[];
@@ -379,8 +379,7 @@ function settingView(){
   const s=settings;
   return`<div class="glass" style="padding:20px"><h3 style="margin-bottom:12px">Tetapan homestay</h3><form id="setForm"><fieldset ${canEdit()?'':'disabled'} style="border:0;padding:0;margin:0;min-width:0"><div class="fg">
   <div class="full"><label>Nama homestay</label><input id="s_name" value="${esc(s.name)}"></div>
-  <div><label>Kadar hari biasa / malam (RM)</label><input id="s_wd" type="number" min="0" step="1" value="${s.wdRate}"></div>
-  <div><label>Kadar Jum &amp; Sab / malam (RM)</label><input id="s_wk" type="number" min="0" step="1" value="${s.wkRate}"></div>
+  <div><label>Harga semalam (RM)</label><input id="s_wd" type="number" min="0" step="1" value="${s.wdRate}"></div>
   <div><label>Deposit (RM, asing daripada sewa)</label><input id="s_dp" type="number" min="0" value="${s.depositAmt}"></div>
     <div><label>Masa check-in</label><input id="s_ci" type="time" value="${s.ciTime}"></div>
   <div><label>Masa check-out</label><input id="s_co" type="time" value="${s.coTime}"></div>
@@ -414,7 +413,7 @@ function openModal(b,isNew){
     <div><label>Kanak-kanak</label><input type="number" id="f_kid" min="0" value="${d.kids}"></div>
     <div class="full"><label>Unit / bilik</label><select id="f_unit">${sel(activeUnits(),d.unit)}</select></div></div></div>
   <div class="blk"><h4>Harga</h4><div class="fg">
-    <div><label>Harga/malam manual (kosong = auto)</label><input type="number" id="f_rate" min="0" value="${d.customRate??''}" placeholder="Auto ikut setting"></div>
+    <div><label>Harga/malam manual (kosong = auto)</label><input type="number" id="f_rate" min="0" value="${d.customRate??''}" placeholder="Auto: RM${settings.wdRate}/malam"></div>
     <div><label>Jumlah sewa manual (RM, kosong = auto)</label><input type="number" id="f_tot" min="0" value="${d.totalFixed??''}"></div>
     <div><label>Caj tambahan (RM)</label><input type="number" id="f_extra" min="0" value="${d.extra}"></div>
     <div><label>Nota caj (cth: BBQ)</label><input id="f_extran" value="${esc(d.extraNote)}"></div>
@@ -569,7 +568,7 @@ document.addEventListener('submit',async e=>{
   else if(e.target.id==='setForm'){
     if(!canEdit())return;
     const v=id=>$('#'+id).value, list=s=>s.split(',').map(x=>x.trim()).filter(Boolean);
-    settings={...settings,name:v('s_name')||'Homestay Kami',wdRate:+v('s_wd')||0,wkRate:+v('s_wk')||0,depositAmt:+v('s_dp')||0,ciTime:v('s_ci'),coTime:v('s_co'),units:list(v('s_units')).length?list(v('s_units')):['Seluruh rumah'],owners:list(v('s_owners'))};
+    settings={...settings,name:v('s_name')||'Homestay Kami',wdRate:+v('s_wd')||0,wkRate:+v('s_wd')||0,depositAmt:+v('s_dp')||0,ciTime:v('s_ci'),coTime:v('s_co'),units:list(v('s_units')).length?list(v('s_units')):['Seluruh rumah'],owners:list(v('s_owners'))};
     render();try{await dbSaveSettings();toast('Tetapan disimpan')}catch(err){toast('Gagal simpan: '+err.message)}
   }
 });
