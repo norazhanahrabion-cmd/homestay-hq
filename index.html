@@ -277,11 +277,14 @@ function render(){
   <nav class="glass tabs">${tabs.map(([k,l])=>`<button class="tab ${view===k?'on':''}" data-act="tab" data-v="${k}">${l}</button>`).join('')}</nav>
   ${view==='kalendar'?calView():view==='senarai'?listView():view==='duit'?moneyView():settingView()}`;
 }
+function authMsg(t,ok){const m=$('#authmsg');if(m){m.textContent=t;m.style.color=ok?'var(--lime)':'var(--red)'}toast(t)}
+async function authCall(fn){try{return await fn()}catch(e){authMsg('Ralat sambungan: '+(e&&e.message||e));return null}}
 function openLogin(){
   $('#modal-root').innerHTML=`<div class="overlay" data-act="closeov"><div class="modal" style="max-width:420px" onclick="event.stopPropagation()"><div class="row" style="justify-content:space-between"><h2>Log masuk</h2><button class="icon" data-act="close">✕</button></div><p style="color:var(--mut);margin:6px 0 0">Anda boleh lihat tempahan tanpa log masuk. Log masuk hanya untuk tambah / edit (emel yang dibenarkan sahaja).</p>
 <form id="loginForm"><input type="email" id="le" placeholder="Emel" required autocomplete="email" style="margin-top:12px"><input type="password" id="lp" placeholder="Kata laluan (min 6 aksara)" required minlength="6" autocomplete="current-password" style="margin-top:10px">
 <div class="row" style="margin-top:14px"><button class="btn" type="submit">Log masuk</button><button class="btn sec" type="button" data-act="signup">Daftar akaun</button></div>
-<p style="margin:12px 0 0;font-size:13.5px"><a href="#" data-act="forgot" style="color:var(--acc2)">Lupa kata laluan?</a></p></form></div></div>`;
+<div id="authmsg" role="status" style="margin-top:12px;font-weight:600;font-size:14px;min-height:20px"></div>
+<p style="margin:8px 0 0;font-size:13.5px"><a href="#" data-act="forgot" style="color:var(--acc2)">Lupa kata laluan?</a></p></form></div></div>`;
 }
 function openNewPass(){
   $('#modal-root').innerHTML=`<div class="overlay"><div class="modal" style="max-width:420px"><h2>Tetapkan kata laluan baharu</h2><form id="newPassForm"><input type="password" id="np" placeholder="Kata laluan baharu (min 6 aksara)" required minlength="6" autocomplete="new-password" style="margin-top:12px"><div class="row" style="margin-top:14px"><button class="btn" type="submit">Simpan kata laluan</button></div></form></div></div>`;
@@ -455,8 +458,12 @@ document.addEventListener('click',async e=>{
   else if(a==='close'||a==='closeov')closeModal();
   else if(a==='theme'){const t=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=t;try{localStorage.setItem('hs-theme',t)}catch(_){}}
   else if(a==='logout'){await sb.auth.signOut();session=null;render();toast('Dah log keluar')}
-  else if(a==='forgot'){e.preventDefault();const em=$('#le').value.trim();if(!em){toast('Taip emel anda dulu di ruang Emel');return}const{error}=await sb.auth.resetPasswordForEmail(em,{redirectTo:location.href.split('#')[0]});toast(error?error.message:'Pautan tetapan semula dihantar ke emel anda')}
-  else if(a==='signup'){const em=$('#le').value,pw=$('#lp').value;if(!em||pw.length<6){toast('Isi emel & kata laluan (min 6)');return}const{error}=await sb.auth.signUp({email:em,password:pw});toast(error?error.message:'Akaun dibuat. Semak emel jika perlu sahkan, kemudian log masuk.')}
+  else if(a==='forgot'){e.preventDefault();const em=$('#le').value.trim();if(!em){authMsg('Taip emel anda dulu di ruang Emel');return}authMsg('Menghantar…',true);const r=await authCall(()=>sb.auth.resetPasswordForEmail(em,{redirectTo:location.href.split('#')[0]}));if(r)authMsg(r.error?r.error.message:'Pautan tetapan semula dihantar. Semak emel anda (termasuk Spam).',!r.error)}
+  else if(a==='signup'){const em=$('#le').value.trim(),pw=$('#lp').value;if(!em||pw.length<6){authMsg('Isi emel dan kata laluan (minimum 6 aksara) dulu');return}
+    el.disabled=true;authMsg('Mendaftar…',true);
+    const r=await authCall(()=>sb.auth.signUp({email:em,password:pw,options:{emailRedirectTo:location.href.split('#')[0]}}));el.disabled=false;
+    if(r){if(r.error)authMsg(r.error.message);else if(r.data&&r.data.session){session=r.data.session;closeModal();render();toast('Akaun dibuat dan log masuk berjaya')}else authMsg('Akaun dibuat. Semak emel anda (termasuk Spam) dan tekan pautan pengesahan, kemudian log masuk.',true)}
+  }
   else if(a==='addDep'||a==='addBal'||a==='addPay'){
     readForm();const c=calc(draft);
     const amt=a==='addDep'?Math.min(settings.depositAmt,Math.max(0,c.total)):a==='addBal'?Math.max(0,c.bal):0;
@@ -489,9 +496,11 @@ document.addEventListener('submit',async e=>{
   e.preventDefault();
   if(e.target.id==='bf')submitBooking();
   else if(e.target.id==='loginForm'){
-    const{data,error}=await sb.auth.signInWithPassword({email:$('#le').value,password:$('#lp').value});
-    if(error){toast(error.message);return}
-    session=data.session;closeModal();render();toast('Log masuk berjaya');
+    authMsg('Log masuk…',true);
+    const r=await authCall(()=>sb.auth.signInWithPassword({email:$('#le').value.trim(),password:$('#lp').value}));
+    if(!r)return;
+    if(r.error){authMsg(r.error.message==='Invalid login credentials'?'Emel atau kata laluan salah, atau akaun belum didaftar. Jika belum, tekan Daftar akaun.':r.error.message);return}
+    session=r.data.session;closeModal();render();toast('Log masuk berjaya');
   }
   else if(e.target.id==='newPassForm'){
     const{error}=await sb.auth.updateUser({password:$('#np').value});
