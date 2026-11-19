@@ -146,6 +146,13 @@ td small{color:var(--mut);display:block}
 .cf{position:fixed;top:-12px;width:10px;height:14px;z-index:99;pointer-events:none;animation:fall 1.8s ease-in forwards}
 @keyframes fall{to{transform:translateY(110vh) rotate(720deg);opacity:.9}}
 textarea.big{min-height:200px;font-family:ui-monospace,monospace;font-size:12.5px}
+#app:has(.landing){padding:0;max-width:none}
+.landing{position:fixed;inset:0;z-index:5;display:grid;place-items:center;text-align:center;padding:24px;color:#fff;
+  background:linear-gradient(rgba(6,12,24,.5),rgba(6,12,24,.8)),url('homestay.jpg') center/cover no-repeat,linear-gradient(135deg,#0e3b2c,#0b1020)}
+.landing-in{max-width:620px}
+.landing .logo{margin:0 auto 18px;width:58px;height:58px;font-size:26px}
+.landing h1{font-size:clamp(30px,6vw,52px);line-height:1.1;margin-bottom:26px;text-shadow:0 4px 24px rgba(0,0,0,.5)}
+.landing p{margin:0 0 16px;opacity:.9}
 @media(max-width:900px){.layout{grid-template-columns:1fr}.bento{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:600px){.day{min-height:64px;padding:4px}.chip{font-size:9.5px;padding:2px 4px}.pay-row{grid-template-columns:1fr 1fr}.brand h1{font-size:22px}.calhead h2{font-size:20px}.dow{font-size:10px}.stat .v{font-size:21px}}
 </style>
@@ -184,9 +191,9 @@ let view=(location.hash.slice(1)||'kalendar');
 if(!['kalendar','senarai','duit','urus','setting'].includes(view))view='kalendar';
 let cur=(()=>{const d=new Date();return{y:d.getFullYear(),m:d.getMonth()}})();
 let unitFilter='all',q='',stFilter='all';
-let sb=null,session=null,mode='local',draft=null,dlCap=null;
+let sb=null,session=null,mode='local',draft=null,dlCap=null,allowed=null,subscribed=false;
 const cfg=window.HOMESTAY_CONFIG||{};
-const canEdit=()=>!sb||!!session;
+const canEdit=()=>!sb||(!!session&&allowed===true);
 
 /* ================= Business logic ================= */
 function roomCharge(b){
@@ -252,7 +259,7 @@ async function dbSaveSettings(){
   const{error}=await sb.from('settings').upsert({id:1,data:settings}); if(error)throw error;
 }
 function subscribe(){
-  if(!sb)return;
+  if(!sb||subscribed)return;subscribed=true;
   let t;const refresh=()=>{clearTimeout(t);t=setTimeout(async()=>{try{await loadAll();if(!draft)render()}catch(e){}},300)};
   sb.channel('hs').on('postgres_changes',{event:'*',schema:'public',table:'bookings'},refresh)
     .on('postgres_changes',{event:'*',schema:'public',table:'settings'},refresh)
@@ -270,6 +277,7 @@ const activeUnits=()=>settings.units&&settings.units.length?settings.units:['Sel
 /* ================= Render ================= */
 function render(){
   const app=$('#app');
+  if(sb&&!(session&&allowed===true)){app.innerHTML=landingHtml();return}
   const act=bookings.filter(b=>!b.cancelled);
   const tot=act.reduce((a,b)=>a+calc(b).total,0), paid=act.reduce((a,b)=>a+calc(b).paid,0);
   const live=act.filter(b=>!b.postponed), dep=act.reduce((a,b)=>a+calc(b).dep,0);
@@ -296,6 +304,18 @@ function render(){
 }
 function authMsg(t,ok){const m=$('#authmsg');if(m){m.textContent=t;m.style.color=ok?'var(--lime)':'var(--red)'}toast(t)}
 async function authCall(fn){try{return await fn()}catch(e){authMsg('Ralat sambungan: '+(e&&e.message||e));return null}}
+function landingHtml(){
+  const denied=session&&allowed===false;
+  return`<div class="landing"><div class="landing-in"><div class="logo">D</div><h1>Selamat Datang ke<br>Homestay D'Hutan</h1>${allowed===null&&session?'':denied?'<p>Akaun ini tiada kebenaran untuk melihat tempahan.</p><button class="btn sec" data-act="logout">Log keluar</button>':'<button class="btn" data-act="login">Log masuk</button>'}</div></div>`;
+}
+async function afterAuth(){
+  if(!session){allowed=false;bookings=[];expenses=[];render();return}
+  const r=await authCall(()=>sb.rpc('is_allowed'));
+  allowed=!!(r&&!r.error&&r.data===true);
+  if(allowed){try{await loadAll();subscribe()}catch(e){toast('Tak boleh muat data: '+(e.message||e))}}
+  else{bookings=[];expenses=[]}
+  render();
+}
 function openLogin(){
   $('#modal-root').innerHTML=`<div class="overlay" data-act="closeov"><div class="modal" style="max-width:420px"><div class="row" style="justify-content:space-between"><h2>Log masuk</h2><button class="icon" data-act="close">✕</button></div><p style="color:var(--mut);margin:6px 0 0">Anda boleh lihat tempahan tanpa log masuk. Log masuk hanya untuk tambah / edit (emel yang dibenarkan sahaja).</p>
 <form id="loginForm"><input type="email" id="le" placeholder="Emel" required autocomplete="email" style="margin-top:12px"><input type="password" id="lp" placeholder="Kata laluan (min 6 aksara)" required minlength="6" autocomplete="current-password" style="margin-top:10px">
@@ -502,12 +522,12 @@ document.addEventListener('click',async e=>{
   else if(a==='edit'){e.stopPropagation();const b=bookings.find(x=>x.id===id);if(b)openModal(b,false)}
   else if(a==='close'||a==='closeov')closeModal();
   else if(a==='theme'){const t=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=t;try{localStorage.setItem('hs-theme',t)}catch(_){}}
-  else if(a==='logout'){await sb.auth.signOut();session=null;render();toast('Dah log keluar')}
+  else if(a==='logout'){await sb.auth.signOut();session=null;allowed=false;bookings=[];expenses=[];render();toast('Dah log keluar')}
   else if(a==='forgot'){e.preventDefault();const em=$('#le').value.trim();if(!em){authMsg('Taip emel anda dulu di ruang Emel');return}authMsg('Menghantar…',true);const r=await authCall(()=>sb.auth.resetPasswordForEmail(em,{redirectTo:location.href.split('#')[0]}));if(r)authMsg(r.error?r.error.message:'Pautan tetapan semula dihantar. Semak emel anda (termasuk Spam).',!r.error)}
   else if(a==='signup'){const em=$('#le').value.trim(),pw=$('#lp').value;if(!em||pw.length<6){authMsg('Isi emel dan kata laluan (minimum 6 aksara) dulu');return}
     el.disabled=true;authMsg('Mendaftar…',true);
     const r=await authCall(()=>sb.auth.signUp({email:em,password:pw,options:{emailRedirectTo:location.href.split('#')[0]}}));el.disabled=false;
-    if(r){if(r.error)authMsg(r.error.message);else if(r.data&&r.data.session){session=r.data.session;closeModal();render();toast('Akaun dibuat dan log masuk berjaya')}else authMsg('Akaun dibuat. Semak emel anda (termasuk Spam) dan tekan pautan pengesahan, kemudian log masuk.',true)}
+    if(r){if(r.error)authMsg(/database error|tidak dibenarkan/i.test(r.error.message)?'Emel ini tidak dibenarkan mendaftar.':r.error.message);else if(r.data&&r.data.session){session=r.data.session;closeModal();await afterAuth();toast('Akaun dibuat')}else authMsg('Akaun dibuat. Semak emel anda (termasuk Spam) dan tekan pautan pengesahan, kemudian log masuk.',true)}
   }
   else if(a==='addDep'||a==='addBal'||a==='addPay'){
     readForm();const c=calc(draft);
@@ -550,7 +570,7 @@ document.addEventListener('submit',async e=>{
     const r=await authCall(()=>sb.auth.signInWithPassword({email:$('#le').value.trim(),password:$('#lp').value}));
     if(!r)return;
     if(r.error){authMsg(r.error.message==='Invalid login credentials'?'Emel atau kata laluan salah, atau akaun belum didaftar. Jika belum, tekan Daftar akaun.':r.error.message);return}
-    session=r.data.session;closeModal();render();toast('Log masuk berjaya');
+    session=r.data.session;closeModal();await afterAuth();if(allowed)toast('Log masuk berjaya');
   }
   else if(e.target.id==='expForm'){
     if(!canEdit())return;
@@ -563,7 +583,7 @@ document.addEventListener('submit',async e=>{
   else if(e.target.id==='newPassForm'){
     const{error}=await sb.auth.updateUser({password:$('#np').value});
     if(error){toast(error.message);return}
-    closeModal();render();toast('Kata laluan dikemas kini');
+    closeModal();await afterAuth();toast('Kata laluan dikemas kini');
   }
   else if(e.target.id==='setForm'){
     if(!canEdit())return;
@@ -576,10 +596,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('#modal-root').in
 window.addEventListener('hashchange',()=>{const v=location.hash.slice(1);if(['kalendar','senarai','duit','urus','setting'].includes(v)&&v!==view){view=v;render()}});
 
 /* ================= Boot ================= */
-async function boot2(){
-  try{await loadAll();subscribe()}catch(e){toast('Tak boleh muat data: '+(e.message||e))}
-  render();
-}
+async function boot2(){await afterAuth()}
 (async function boot(){
   try{const t=localStorage.getItem('hs-theme');if(t)document.documentElement.dataset.theme=t}catch(_){}
   if(window.claude&&claude.use){claude.use('downloads').then(d=>{dlCap=d}).catch(()=>{})}
