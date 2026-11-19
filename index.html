@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="ms" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Homestay HQ · Tempahan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+/* ============ CONFIG SUPABASE ============
+   Isi dua nilai ini (Supabase > Project Settings > API).
+   Kosongkan = mod setempat (data hanya dalam browser ini, tak dikongsi). */
+window.HOMESTAY_CONFIG = {
+  SUPABASE_URL: "https://yhucewmrsmigvkwhsvns.supabase.co",
+  SUPABASE_ANON_KEY: "sb_publishable_OuWpvrdpJ_E3N-Tw2bwtzA_vzy_gIqr"
+};
+</script>
+<style>
+:root{
+  --bg:#0b1020; --card:rgba(255,255,255,.045); --card2:rgba(255,255,255,.08); --line:rgba(255,255,255,.1);
+  --txt:#eef1f8; --mut:#8e99b3; --lime:#34d399; --pink:#6366f1; --violet:#6366f1; --cyan:#38bdf8; --amber:#f5b94a; --red:#f87171;
+  --acc:#6366f1; --acc2:#818cf8; --inp:rgba(8,12,28,.6); --shadow:0 8px 30px rgba(0,0,0,.35);
+}
+[data-theme=light]{
+  --bg:#f5f7fb; --card:rgba(255,255,255,.9); --card2:#fff; --line:rgba(15,23,60,.1);
+  --txt:#0f172a; --mut:#5b6785; --inp:#fff; --shadow:0 6px 24px rgba(15,23,60,.08);
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--txt);font-family:'Space Grotesk',system-ui,sans-serif;min-height:100vh;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+.blobs{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none}
+.blob{position:absolute;border-radius:50%;filter:blur(120px);opacity:.22;animation:float 24s ease-in-out infinite}
+.b1{width:480px;height:480px;background:var(--violet);top:-120px;left:-100px}
+.b2{width:420px;height:420px;background:var(--cyan);top:35%;right:-160px;animation-delay:-8s;opacity:.14}
+.b3{display:none}
+[data-theme=light] .blob{opacity:.1}
+@keyframes float{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(40px,-50px) scale(1.12)}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+.wrap{max-width:1180px;margin:0 auto;padding:18px 16px 90px}
+h1,h2,h3{font-family:'Space Grotesk',sans-serif;font-weight:700;margin:0;letter-spacing:-.02em}
+header.top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+.brand{display:flex;align-items:center;gap:12px}
+.logo{width:46px;height:46px;border-radius:14px;background:linear-gradient(135deg,var(--acc),var(--cyan));display:grid;place-items:center;font-size:22px;box-shadow:0 6px 18px rgba(99,102,241,.35)}
+.brand h1{font-size:26px;line-height:1}
+.brand small{color:var(--mut);display:block;margin-top:4px;font-size:13px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;font-size:12.5px;font-weight:600;border:1px solid var(--line);background:var(--card);backdrop-filter:blur(10px)}
+.btn{font:inherit;font-weight:700;border:0;border-radius:999px;padding:11px 20px;cursor:pointer;color:#fff;background:var(--acc);box-shadow:0 4px 14px rgba(99,102,241,.35);transition:transform .15s,box-shadow .15s,filter .15s}
+.btn:hover{transform:translateY(-1px);filter:brightness(1.1)}
+.btn:active{transform:scale(.96)}
+.btn.sec{background:var(--card2);color:var(--txt);box-shadow:none;border:1px solid var(--line)}
+
+.btn.sm{padding:7px 13px;font-size:13px}
+.btn.danger{background:var(--red);color:#fff;box-shadow:none}
+.icon{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--txt);width:40px;height:40px;border-radius:14px;cursor:pointer;font-size:17px;backdrop-filter:blur(10px)}
+.icon:hover{background:var(--card2)}
+.glass{background:var(--card);border:1px solid var(--line);border-radius:20px;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);box-shadow:var(--shadow)}
+.bento{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.stat{padding:16px 18px;position:relative;overflow:hidden}
+.stat .k{color:var(--mut);font-size:12.5px;font-weight:600;text-transform:uppercase;letter-spacing:.06em}
+.stat .v{font-family:'Space Grotesk',sans-serif;font-size:26px;font-weight:700;margin-top:6px;line-height:1.1}
+.stat .s{color:var(--mut);font-size:12.5px;margin-top:4px}
+.stat::before{content:"";position:absolute;left:0;top:14px;bottom:14px;width:3px;border-radius:3px}
+.stat.a::before{background:var(--acc)}.stat.b::before{background:var(--lime)}.stat.c::before{background:var(--amber)}.stat.d::before{background:var(--cyan)}
+.tabs{display:flex;gap:6px;padding:6px;border-radius:999px;margin-bottom:16px;overflow-x:auto;width:fit-content;max-width:100%}
+.tab{font:inherit;font-weight:700;font-size:14px;border:0;background:transparent;color:var(--mut);padding:10px 18px;border-radius:999px;cursor:pointer;white-space:nowrap;transition:.2s}
+.tab.on{background:var(--acc);color:#fff;box-shadow:0 4px 14px rgba(99,102,241,.35)}
+.layout{display:grid;grid-template-columns:1fr 300px;gap:16px}
+.cal{padding:16px}
+.calhead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.calhead h2{font-size:24px}
+.grid7{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.dow{text-align:center;font-size:12px;color:var(--mut);font-weight:700;padding:4px 0;text-transform:uppercase;letter-spacing:.06em}
+.day{min-height:96px;border-radius:16px;padding:6px;background:var(--card);border:1px solid transparent;cursor:pointer;transition:.15s;display:flex;flex-direction:column;gap:3px;overflow:hidden}
+.day:hover{border-color:var(--acc2)}
+.day.out{opacity:.38}
+.day.today{border-color:var(--acc2);box-shadow:inset 0 0 0 1px var(--acc2)}
+.day .n{font-size:12.5px;font-weight:700;color:var(--mut)}
+.day.today .n{color:var(--acc2)}
+[data-theme=light] .day.today .n{color:var(--acc)}
+.chip{font-size:11px;font-weight:700;border-radius:9px;padding:3px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;color:#0a0a14}
+.chip.unpaid{background:var(--amber);}
+.chip.deposit{background:var(--cyan);}
+.chip.paid{background:var(--lime);}
+.chip.outc{background:transparent;border:1px dashed var(--line);color:var(--mut);font-weight:600}
+.more{font-size:11px;color:var(--mut);font-weight:700}
+.legend{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.side{display:flex;flex-direction:column;gap:12px}
+.panel{padding:16px}
+.panel h3{font-size:18px;margin-bottom:10px}
+.up{padding:11px 12px;border-radius:16px;background:var(--card2);margin-bottom:8px;cursor:pointer;border:1px solid var(--line);transition:.15s}
+.up:hover{border-color:var(--acc2)}
+.up b{display:block}
+.up span{color:var(--mut);font-size:12.5px}
+.badge{display:inline-block;font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap}
+.badge.unpaid{background:rgba(255,178,61,.18);color:var(--amber)}
+.badge.deposit{background:rgba(53,224,255,.16);color:var(--cyan)}
+.badge.paid{background:rgba(198,255,61,.18);color:var(--lime)}
+.badge.cancel{background:rgba(163,163,196,.18);color:var(--mut)}
+.badge.late{background:rgba(255,84,112,.2);color:var(--red)}
+[data-theme=light] .badge.paid{color:#3f7000}[data-theme=light] .badge.deposit{color:#007a99}[data-theme=light] .badge.unpaid{color:#b36b00}
+.tools{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+input,select,textarea{font:inherit;color:var(--txt);background:var(--inp);border:1px solid var(--line);border-radius:12px;padding:10px 12px;width:100%;outline:none;transition:.15s}
+input:focus,select:focus,textarea:focus{border-color:var(--acc2);box-shadow:0 0 0 3px rgba(99,102,241,.25)}
+select option{color:#111}
+.tools input,.tools select{width:auto;flex:1;min-width:150px}
+.tablewrap{overflow-x:auto;padding:6px 8px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;color:var(--mut);font-size:12px;text-transform:uppercase;letter-spacing:.06em;padding:12px 10px;white-space:nowrap}
+td{padding:12px 10px;border-top:1px solid var(--line);vertical-align:middle}
+tr.rw{cursor:pointer;transition:.12s}
+tr.rw:hover td{background:var(--card)}
+td small{color:var(--mut);display:block}
+.num{text-align:right;white-space:nowrap}
+.empty{text-align:center;padding:50px 20px;color:var(--mut)}
+.empty .big{font-size:48px}
+.overlay{position:fixed;inset:0;background:rgba(5,5,12,.7);backdrop-filter:blur(8px);z-index:50;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:24px 12px;animation:fade .2s}
+@keyframes fade{from{opacity:0}}
+.modal{width:100%;max-width:760px;padding:24px;background:var(--bg);border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow);animation:pop .25s cubic-bezier(.2,1.3,.4,1)}
+[data-theme=dark] .modal{background:#111832}
+@keyframes pop{from{transform:translateY(24px) scale(.96);opacity:0}}
+.modal h2{font-size:24px;margin-bottom:4px}
+.blk{margin-top:18px}
+.blk h4{margin:0 0 10px;font-size:12.5px;text-transform:uppercase;letter-spacing:.09em;color:var(--acc2)}
+[data-theme=light] .blk h4{color:var(--acc)}
+.fg{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+.fg label{display:block;font-size:12.5px;color:var(--mut);font-weight:600;margin-bottom:5px}
+.fg .full{grid-column:1/-1}
+.pay-row{display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:6px;margin-bottom:6px}
+.calc{padding:14px;border-radius:20px;background:var(--card);border:1px solid var(--line);margin-top:10px}
+.calc .l{display:flex;justify-content:space-between;padding:3px 0;color:var(--mut);font-size:14px}
+.calc .l b{color:var(--txt)}
+.calc .tot{font-family:'Space Grotesk',sans-serif;font-size:21px}
+.bar{height:10px;border-radius:99px;background:var(--inp);overflow:hidden;margin-top:8px}
+.bar i{display:block;height:100%;background:var(--lime);border-radius:99px;transition:width .4s}
+.warn{margin-top:8px;padding:10px 12px;border-radius:14px;background:rgba(255,84,112,.15);color:var(--red);font-weight:600;font-size:13.5px}
+.mfoot{display:flex;justify-content:space-between;gap:8px;margin-top:20px;flex-wrap:wrap}
+.toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,40px);background:var(--txt);color:var(--bg);padding:12px 20px;border-radius:999px;font-weight:700;opacity:0;pointer-events:none;transition:.3s;z-index:90;max-width:90vw}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.login{max-width:420px;margin:12vh auto 0;padding:30px;text-align:center}
+.login .logo{margin:0 auto 14px}
+.login input{margin-top:10px}
+.cf{position:fixed;top:-12px;width:10px;height:14px;z-index:99;pointer-events:none;animation:fall 1.8s ease-in forwards}
+@keyframes fall{to{transform:translateY(110vh) rotate(720deg);opacity:.9}}
+textarea.big{min-height:200px;font-family:ui-monospace,monospace;font-size:12.5px}
+@media(max-width:900px){.layout{grid-template-columns:1fr}.bento{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:600px){.day{min-height:64px;padding:4px}.chip{font-size:9.5px;padding:2px 4px}.pay-row{grid-template-columns:1fr 1fr}.brand h1{font-size:22px}.calhead h2{font-size:20px}.dow{font-size:10px}.stat .v{font-size:21px}}
+</style>
+</head>
+<body>
+<div class="blobs"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div></div>
+<div class="wrap" id="app"></div>
+<div id="modal-root"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ================= Util ================= */
+const $=(s,r=document)=>r.querySelector(s);
+const MONTHS=['Januari','Februari','Mac','April','Mei','Jun','Julai','Ogos','September','Oktober','November','Disember'];
+const DAYS=['Isn','Sel','Rab','Kha','Jum','Sab','Ahd'];
+const pad=n=>String(n).padStart(2,'0');
+const today=()=>{const d=new Date();return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`};
+const P=s=>{const[y,m,d]=s.split('-').map(Number);return Date.UTC(y,m-1,d)};
+const S=t=>{const d=new Date(t);return `${d.getUTCFullYear()}-${pad(d.getUTCMonth()+1)}-${pad(d.getUTCDate())}`};
+const addDays=(s,n)=>S(P(s)+n*864e5);
+const diffDays=(a,b)=>Math.round((P(b)-P(a))/864e5);
+const dow=s=>(new Date(P(s)).getUTCDay()+6)%7;
+const dmy=s=>s?`${s.slice(8)}/${s.slice(5,7)}/${s.slice(0,4)}`:'';
+const fmt=n=>'RM '+(Number(n)||0).toLocaleString('en-MY',{minimumFractionDigits:2,maximumFractionDigits:2});
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid=()=>(crypto.randomUUID?crypto.randomUUID():'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0;return(c=='x'?r:(r&3|8)).toString(16)}));
+const LS='homestay-hq-v1';
+
+/* ================= State ================= */
+const DEFAULT_SETTINGS={name:'Homestay Kami',units:['Seluruh rumah'],owners:['Saya','Partner'],wdRate:250,wkRate:320,depositAmt:150,ciTime:'15:00',coTime:'12:00'};
+let settings={...DEFAULT_SETTINGS};
+let bookings=[];
+let view=(location.hash.slice(1)||'kalendar');
+if(!['kalendar','senarai','duit','setting'].includes(view))view='kalendar';
+let cur=(()=>{const d=new Date();return{y:d.getFullYear(),m:d.getMonth()}})();
+let unitFilter='all',q='',stFilter='all';
+let sb=null,session=null,mode='local',draft=null,dlCap=null;
+const cfg=window.HOMESTAY_CONFIG||{};
+const canEdit=()=>!sb||!!session;
+
+/* ================= Business logic ================= */
+function roomCharge(b){
+  const n=diffDays(b.ci,b.co); if(!(n>0))return 0;
+  if(b.customRate!==null&&b.customRate!==''&&b.customRate!==undefined)return n*Number(b.customRate);
+  let t=0; for(let i=0;i<n;i++){const d=dow(addDays(b.ci,i)); t+=(d===4||d===5)?settings.wkRate:settings.wdRate}
+  return t;
+}
+function calc(b){
+  const room=roomCharge(b), total=Math.max(0,room+(+b.extra||0)+(+b.damage||0)-(+b.discount||0));
+  const paid=(b.payments||[]).reduce((a,p)=>a+(+p.amount||0),0);
+  return{room,total,paid,bal:total-paid,nights:Math.max(0,diffDays(b.ci,b.co))};
+}
+function status(b){
+  if(b.cancelled)return'cancel';
+  const c=calc(b); if(c.paid<=0)return'unpaid';
+  return c.paid>=c.total-.005?'paid':'deposit';
+}
+const ST={unpaid:'Belum bayar',deposit:'Deposit diterima',paid:'Lunas',cancel:'Dibatalkan'};
+const overdue=b=>{const s=status(b);return(s==='unpaid'||s==='deposit')&&calc(b).bal>0&&b.balanceDue&&b.balanceDue<today()};
+const badge=b=>`<span class="badge ${status(b)}">${ST[status(b)]}</span>${overdue(b)?' <span class="badge late">Lewat</span>':''}`;
+function overlapWith(b){return bookings.find(o=>o.id!==b.id&&!o.cancelled&&!b.cancelled&&o.unit===b.unit&&b.ci<o.co&&o.ci<b.co&&b.ci&&b.co)}
+function waLink(b){
+  let p=(b.phone||'').replace(/\D/g,''); if(!p)return null; if(p[0]==='0')p='6'+p;
+  const c=calc(b);
+  const m=`Salam ${b.name},\nTempahan ${settings.name} anda:\n📅 ${dmy(b.ci)} → ${dmy(b.co)} (${c.nights} malam)\n💰 Jumlah: ${fmt(c.total)}\n✅ Dibayar: ${fmt(c.paid)}\n⏳ Baki: ${fmt(c.bal)}${b.balanceDue&&c.bal>0?'\n🗓️ Baki sebelum: '+dmy(b.balanceDue):''}\nTerima kasih.`;
+  return`https://wa.me/${p}?text=${encodeURIComponent(m)}`;
+}
+
+/* ================= Storage (Supabase / local) ================= */
+function saveLocal(){try{localStorage.setItem(LS,JSON.stringify({settings,bookings}))}catch(e){}}
+function loadLocal(){try{const s=JSON.parse(localStorage.getItem(LS)||'null');if(s){settings={...DEFAULT_SETTINGS,...s.settings};bookings=s.bookings||[]}}catch(e){}}
+async function loadAll(){
+  if(!sb){loadLocal();return}
+  const [b,s]=await Promise.all([sb.from('bookings').select('id,data'),sb.from('settings').select('data').eq('id',1).maybeSingle()]);
+  if(b.error)throw b.error;
+  bookings=(b.data||[]).map(r=>({...r.data,id:r.id}));
+  if(s.data&&s.data.data)settings={...DEFAULT_SETTINGS,...s.data.data};
+}
+async function dbSaveBooking(b){
+  if(!sb){saveLocal();return}
+  const{error}=await sb.from('bookings').upsert({id:b.id,data:b,updated_at:new Date().toISOString()});
+  if(error)throw error;
+}
+async function dbDeleteBooking(id){
+  if(!sb){saveLocal();return}
+  const{error}=await sb.from('bookings').delete().eq('id',id); if(error)throw error;
+}
+async function dbSaveSettings(){
+  if(!sb){saveLocal();return}
+  const{error}=await sb.from('settings').upsert({id:1,data:settings}); if(error)throw error;
+}
+function subscribe(){
+  if(!sb)return;
+  let t;const refresh=()=>{clearTimeout(t);t=setTimeout(async()=>{try{await loadAll();if(!draft)render()}catch(e){}},300)};
+  sb.channel('hs').on('postgres_changes',{event:'*',schema:'public',table:'bookings'},refresh)
+    .on('postgres_changes',{event:'*',schema:'public',table:'settings'},refresh).subscribe();
+}
+
+/* ================= UI helpers ================= */
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove('show'),2600)}
+function confetti(){
+  const cols=['#34d399','#38bdf8','#6366f1','#818cf8','#f5b94a'];
+  for(let i=0;i<70;i++){const e=document.createElement('i');e.className='cf';e.style.left=Math.random()*100+'vw';e.style.background=cols[i%5];e.style.animationDelay=Math.random()*.5+'s';e.style.animationDuration=(1.4+Math.random()*1.2)+'s';e.style.borderRadius=Math.random()>.5?'50%':'2px';document.body.appendChild(e);setTimeout(()=>e.remove(),3200)}
+}
+const activeUnits=()=>settings.units&&settings.units.length?settings.units:['Seluruh rumah'];
+
+/* ================= Render ================= */
+function render(){
+  const app=$('#app');
+  const act=bookings.filter(b=>!b.cancelled);
+  const tot=act.reduce((a,b)=>a+calc(b).total,0), paid=act.reduce((a,b)=>a+calc(b).paid,0);
+  const nxt=act.filter(b=>b.ci>=today()).sort((a,b)=>a.ci<b.ci?-1:1)[0];
+  const tabs=[['kalendar','Kalendar'],['senarai','Tempahan'],['duit','Kewangan'],['setting','Tetapan']];
+  app.innerHTML=`
+  <header class="top">
+    <div class="brand"><div class="logo">H</div><div><h1>${esc(settings.name)}</h1><small>Sistem pengurusan tempahan</small></div></div>
+    <div class="row">
+      <span class="pill">${sb?'● Sync langsung':'Mod setempat'}</span>
+      <button class="icon" data-act="theme" title="Tukar tema">🌓</button>
+      ${sb&&session?'<button class="btn sec" data-act="logout">Log keluar</button>':''}
+      ${canEdit()?'<button class="btn" data-act="new">＋ Tempahan baru</button>':'<button class="btn" data-act="login">Log masuk untuk edit</button>'}
+    </div>
+  </header>
+  <section class="bento">
+    <div class="glass stat a"><div class="k">Tempahan aktif</div><div class="v">${act.length}</div><div class="s">${bookings.length-act.length} dibatalkan</div></div>
+    <div class="glass stat b"><div class="k">Diterima</div><div class="v">${fmt(paid)}</div><div class="s">dari ${fmt(tot)} jualan</div></div>
+    <div class="glass stat c"><div class="k">Baki tertunggak</div><div class="v">${fmt(Math.max(0,tot-paid))}</div><div class="s">${act.filter(overdue).length} lewat bayar</div></div>
+    <div class="glass stat d"><div class="k">Check-in seterusnya</div><div class="v">${nxt?dmy(nxt.ci).slice(0,5):'—'}</div><div class="s">${nxt?esc(nxt.name):'Tiada tempahan akan datang'}</div></div>
+  </section>
+  <nav class="glass tabs">${tabs.map(([k,l])=>`<button class="tab ${view===k?'on':''}" data-act="tab" data-v="${k}">${l}</button>`).join('')}</nav>
+  ${view==='kalendar'?calView():view==='senarai'?listView():view==='duit'?moneyView():settingView()}`;
+}
+function openLogin(){
+  $('#modal-root').innerHTML=`<div class="overlay" data-act="closeov"><div class="modal" style="max-width:420px" onclick="event.stopPropagation()"><div class="row" style="justify-content:space-between"><h2>Log masuk</h2><button class="icon" data-act="close">✕</button></div><p style="color:var(--mut);margin:6px 0 0">Anda boleh lihat tempahan tanpa log masuk. Log masuk hanya untuk tambah / edit (emel yang dibenarkan sahaja).</p>
+<form id="loginForm"><input type="email" id="le" placeholder="Emel" required autocomplete="email" style="margin-top:12px"><input type="password" id="lp" placeholder="Kata laluan (min 6 aksara)" required minlength="6" autocomplete="current-password" style="margin-top:10px">
+<div class="row" style="margin-top:14px"><button class="btn" type="submit">Log masuk</button><button class="btn sec" type="button" data-act="signup">Daftar akaun</button></div></form></div></div>`;
+}
+
+function calView(){
+  const first=S(Date.UTC(cur.y,cur.m,1)), off=dow(first);
+  const dim=new Date(Date.UTC(cur.y,cur.m+1,0)).getUTCDate();
+  const weeks=Math.ceil((off+dim)/7);
+  const start=addDays(first,-off);
+  const list=bookings.filter(b=>!b.cancelled&&(unitFilter==='all'||b.unit===unitFilter));
+  let cells='';
+  for(let i=0;i<weeks*7;i++){
+    const d=addDays(start,i), inM=d.slice(5,7)==pad(cur.m+1);
+    const occ=list.filter(b=>b.ci<=d&&d<b.co), outs=list.filter(b=>b.co===d);
+    const chips=[...occ.map(b=>`<div class="chip ${status(b)}" data-act="edit" data-id="${b.id}" title="${esc(b.name)}">${b.ci===d?'→ ':''}${esc(b.name)}</div>`),...outs.map(b=>`<div class="chip outc" data-act="edit" data-id="${b.id}">← ${esc(b.name)}</div>`)];
+    cells+=`<div class="day ${inM?'':'out'} ${d===today()?'today':''}" data-act="newday" data-date="${d}"><span class="n">${+d.slice(8)}</span>${chips.slice(0,3).join('')}${chips.length>3?`<span class="more">+${chips.length-3} lagi</span>`:''}</div>`;
+  }
+  const ups=bookings.filter(b=>!b.cancelled&&b.co>=today()).sort((a,b)=>a.ci<b.ci?-1:1).slice(0,6);
+  return`<div class="layout"><div class="glass cal">
+    <div class="calhead"><div class="row"><button class="icon" data-act="prev">‹</button><h2>${MONTHS[cur.m]} ${cur.y}</h2><button class="icon" data-act="next">›</button><button class="btn sec sm" data-act="tdy">Hari ni</button></div>
+    ${activeUnits().length>1?`<select style="width:auto" id="unitSel"><option value="all">Semua unit</option>${activeUnits().map(u=>`<option ${unitFilter===u?'selected':''}>${esc(u)}</option>`).join('')}</select>`:''}</div>
+    <div class="grid7">${DAYS.map(d=>`<div class="dow">${d}</div>`).join('')}${cells}</div>
+    <div class="legend"><span class="badge unpaid">Belum bayar</span><span class="badge deposit">Deposit masuk</span><span class="badge paid">Lunas</span><span class="pill">→ masuk · ← keluar</span></div>
+  </div>
+  <aside class="side"><div class="glass panel"><h3>Akan datang</h3>${ups.length?ups.map(b=>{const c=calc(b);return`<div class="up" data-act="edit" data-id="${b.id}"><b>${esc(b.name)}</b><span>${dmy(b.ci)} → ${dmy(b.co)} · ${c.nights} malam</span><div style="margin-top:6px">${badge(b)}${c.bal>0?` <span style="font-size:12px;color:var(--mut)">baki ${fmt(c.bal)}</span>`:''}</div></div>`}).join(''):'<div class="empty" style="padding:20px">Belum ada tempahan.<br>Tambah tempahan pertama anda.</div>'}</div></aside></div>`;
+}
+
+function listView(){
+  let l=[...bookings].sort((a,b)=>a.ci<b.ci?1:-1);
+  if(q){const s=q.toLowerCase();l=l.filter(b=>(b.name+' '+b.phone+' '+(b.source||'')+' '+(b.unit||'')).toLowerCase().includes(s))}
+  if(stFilter!=='all')l=l.filter(b=>status(b)===stFilter);
+  const rows=l.map(b=>{const c=calc(b),w=waLink(b);return`<tr class="rw" data-act="edit" data-id="${b.id}"><td><b>${esc(b.name)}</b><small>${esc(b.phone||'-')}</small></td><td>${dmy(b.ci)} → ${dmy(b.co)}<small>${c.nights} malam · ${esc(b.unit)}</small></td><td class="num">${fmt(c.total)}</td><td class="num">${fmt(c.paid)}</td><td class="num"><b>${fmt(c.bal)}</b></td><td>${badge(b)}</td><td>${w?`<a class="btn sm sec" href="${w}" target="_blank" rel="noopener" data-stop="1">WhatsApp</a>`:''}</td></tr>`}).join('');
+  return`<div class="glass" style="padding:14px"><div class="tools"><input id="q" placeholder="Cari nama / telefon / unit" value="${esc(q)}"><select id="stf"><option value="all">Semua status</option>${Object.entries(ST).map(([k,v])=>`<option value="${k}" ${stFilter===k?'selected':''}>${v}</option>`).join('')}</select></div>
+  ${l.length?`<div class="tablewrap"><table><thead><tr><th>Penyewa</th><th>Tarikh</th><th class="num">Jumlah</th><th class="num">Dibayar</th><th class="num">Baki</th><th>Status</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`:`<div class="empty">Tiada tempahan padan. Tekan <b>＋ Tempahan baru</b>.</div>`}</div>`;
+}
+
+function moneyView(){
+  const m={};
+  bookings.filter(b=>!b.cancelled).forEach(b=>{const k=b.ci.slice(0,7),c=calc(b);m[k]=m[k]||{n:0,nights:0,total:0,paid:0};m[k].n++;m[k].nights+=c.nights;m[k].total+=c.total;m[k].paid+=c.paid});
+  const keys=Object.keys(m).sort().reverse();
+  const forf=bookings.filter(b=>b.cancelled).reduce((a,b)=>a+calc(b).paid,0);
+  return`<div class="glass" style="padding:14px"><h3 style="margin:6px 8px 10px">Rekod bulanan</h3>${keys.length?`<div class="tablewrap"><table><thead><tr><th>Bulan (check-in)</th><th class="num">Booking</th><th class="num">Malam</th><th class="num">Jualan</th><th class="num">Diterima</th><th class="num">Tertunggak</th></tr></thead><tbody>${keys.map(k=>`<tr><td><b>${MONTHS[+k.slice(5)-1]} ${k.slice(0,4)}</b></td><td class="num">${m[k].n}</td><td class="num">${m[k].nights}</td><td class="num">${fmt(m[k].total)}</td><td class="num">${fmt(m[k].paid)}</td><td class="num"><b>${fmt(m[k].total-m[k].paid)}</b></td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">Belum ada data.</div>'}
+  <div class="calc" style="margin:12px 8px 6px"><div class="l"><span>Deposit hangus (tempahan dibatalkan)</span><b>${fmt(forf)}</b></div></div></div>`;
+}
+
+function settingView(){
+  const s=settings;
+  return`<div class="glass" style="padding:20px"><h3 style="margin-bottom:12px">Tetapan homestay</h3><form id="setForm"><fieldset ${canEdit()?'':'disabled'} style="border:0;padding:0;margin:0;min-width:0"><div class="fg">
+  <div class="full"><label>Nama homestay</label><input id="s_name" value="${esc(s.name)}"></div>
+  <div><label>Kadar hari biasa / malam (RM)</label><input id="s_wd" type="number" min="0" step="1" value="${s.wdRate}"></div>
+  <div><label>Kadar Jum &amp; Sab / malam (RM)</label><input id="s_wk" type="number" min="0" step="1" value="${s.wkRate}"></div>
+  <div><label>Deposit tempahan (RM)</label><input id="s_dp" type="number" min="0" value="${s.depositAmt}"></div>
+    <div><label>Masa check-in</label><input id="s_ci" type="time" value="${s.ciTime}"></div>
+  <div><label>Masa check-out</label><input id="s_co" type="time" value="${s.coTime}"></div>
+  <div class="full"><label>Unit / bilik (asing dengan koma)</label><input id="s_units" value="${esc(activeUnits().join(', '))}"></div>
+  <div class="full"><label>Nama anda &amp; partner (asing dengan koma)</label><input id="s_owners" value="${esc((s.owners||[]).join(', '))}"></div></div>
+  </fieldset><div class="row" style="margin-top:16px">${canEdit()?'<button class="btn" type="submit">Simpan tetapan</button>':''}<button type="button" class="btn sec" data-act="csv">Export CSV</button><button type="button" class="btn sec" data-act="json">Backup JSON</button></div></form></div>`;
+}
+
+/* ================= Booking modal ================= */
+function newBooking(pre={}){
+  const ci=pre.ci||today();
+  return{id:uid(),name:'',phone:'',ic:'',ci,co:pre.co||addDays(ci,1),ciTime:settings.ciTime,coTime:settings.coTime,adults:2,kids:0,unit:pre.unit||(unitFilter!=='all'?unitFilter:activeUnits()[0]),customRate:null,extra:0,extraNote:'',discount:0,damage:0,payments:[],balanceDue:'',source:'WhatsApp',handler:(settings.owners||[])[0]||'',notes:'',cancelled:false,created:today()};
+}
+function openModal(b,isNew){
+  draft=JSON.parse(JSON.stringify(b)); draft._new=isNew;
+  const d=draft, sel=(arr,v)=>arr.map(x=>`<option ${x===v?'selected':''}>${esc(x)}</option>`).join('');
+  $('#modal-root').innerHTML=`<div class="overlay" data-act="closeov"><form class="modal" id="bf" onclick="event.stopPropagation()">
+  <div class="row" style="justify-content:space-between"><h2>${isNew?'Tempahan baru':'Edit tempahan'}</h2><button type="button" class="icon" data-act="close">✕</button></div>
+  <div class="blk"><h4>Penyewa</h4><div class="fg">
+    <div class="full"><label>Nama penyewa *</label><input id="f_name" value="${esc(d.name)}" placeholder="Cth: Ahmad bin Ali" required></div>
+    <div><label>No. telefon</label><input id="f_phone" value="${esc(d.phone)}" placeholder="012-3456789" inputmode="tel"></div>
+    <div><label>No. KP / Pasport</label><input id="f_ic" value="${esc(d.ic)}"></div>
+    <div><label>Sumber tempahan</label><select id="f_src">${sel(['WhatsApp','Instagram','TikTok','Facebook','Airbnb','Booking.com','Walk-in','Kawan / Referral','Lain-lain'],d.source)}</select></div>
+    <div><label>Diuruskan oleh</label><select id="f_hand">${sel(settings.owners||[],d.handler)}</select></div></div></div>
+  <div class="blk"><h4>Tarikh &amp; tetamu</h4><div class="fg">
+    <div><label>Check-in *</label><input type="date" id="f_ci" value="${d.ci}" required></div>
+    <div><label>Check-out *</label><input type="date" id="f_co" value="${d.co}" required></div>
+    <div><label>Masa masuk</label><input type="time" id="f_cit" value="${d.ciTime}"></div>
+    <div><label>Masa keluar</label><input type="time" id="f_cot" value="${d.coTime}"></div>
+    <div><label>Dewasa</label><input type="number" id="f_ad" min="0" value="${d.adults}"></div>
+    <div><label>Kanak-kanak</label><input type="number" id="f_kid" min="0" value="${d.kids}"></div>
+    <div class="full"><label>Unit / bilik</label><select id="f_unit">${sel(activeUnits(),d.unit)}</select></div></div></div>
+  <div class="blk"><h4>Harga</h4><div class="fg">
+    <div><label>Harga/malam manual (kosong = auto)</label><input type="number" id="f_rate" min="0" value="${d.customRate??''}" placeholder="Auto ikut setting"></div>
+    <div><label>Caj tambahan (RM)</label><input type="number" id="f_extra" min="0" value="${d.extra}"></div>
+    <div><label>Nota caj (cth: BBQ)</label><input id="f_extran" value="${esc(d.extraNote)}"></div>
+    <div><label>Caj kerosakan (RM)</label><input type="number" id="f_dmg" min="0" value="${d.damage||0}"></div>
+    <div><label>Diskaun (RM)</label><input type="number" id="f_disc" min="0" value="${d.discount}"></div></div></div>
+  <div class="blk"><h4>Deposit &amp; bayaran penuh</h4>
+    <div id="pays"></div>
+    <div class="row" style="margin:8px 0"><button type="button" class="btn sm sec" data-act="addDep">＋ Deposit RM150</button><button type="button" class="btn sm sec" data-act="addBal">＋ Bayar baki penuh</button><button type="button" class="btn sm sec" data-act="addPay">＋ Bayaran lain</button></div>
+    <div class="fg"><div><label>Baki perlu dibayar sebelum</label><input type="date" id="f_due" value="${d.balanceDue}"></div>
+    </div>
+    <div class="calc" id="calc"></div></div>
+  <div class="blk"><h4>Nota</h4><textarea id="f_notes" rows="3" placeholder="Permintaan khas, masa sampai, dll.">${esc(d.notes)}</textarea>
+    <label style="display:flex;gap:8px;align-items:center;margin-top:10px;font-weight:600"><input type="checkbox" id="f_cancel" style="width:auto" ${d.cancelled?'checked':''}> Tempahan dibatalkan</label></div>
+  <div class="mfoot"><div>${isNew?'':'<button type="button" class="btn danger" data-act="del">Padam</button>'}</div><div class="row">${waLink(d)&&!isNew?`<a class="btn sec" href="${waLink(d)}" target="_blank" rel="noopener">WhatsApp</a>`:''}<button type="button" class="btn sec" data-act="close">Batal</button><button type="submit" class="btn">Simpan</button></div></div></form></div>`;
+  renderPays(); updateCalc();
+  if(!canEdit()){
+    $('#bf').querySelectorAll('input,select,textarea').forEach(x=>x.disabled=true);
+    $('#bf').querySelectorAll('[data-act=addDep],[data-act=addBal],[data-act=addPay],[data-act=del],button[type=submit]').forEach(x=>x.style.display='none');
+    $('#bf h2').textContent='Butiran tempahan';
+  }
+}
+function renderPays(){
+  const mk=['Pindahan bank','DuitNow / QR','Tunai','Kad','Lain-lain'], tp=['Deposit','Bayaran penuh','Baki','Lain-lain'];
+  const o=(a,v)=>a.map(x=>`<option ${x===v?'selected':''}>${x}</option>`).join('');
+  $('#pays').innerHTML=draft.payments.length?draft.payments.map(p=>`<div class="pay-row" data-id="${p.id}"><input type="date" class="p-date" value="${p.date}"><select class="p-type">${o(tp,p.type)}</select><input type="number" class="p-amt" min="0" step="0.01" value="${p.amount}" placeholder="RM"><select class="p-method">${o(mk,p.method)}</select>${canEdit()?`<button type="button" class="icon" data-act="rmPay" data-id="${p.id}">✕</button>`:'<span></span>'}</div>`).join(''):'<div style="color:var(--mut);font-size:13.5px">Belum ada bayaran. Tambah deposit atau bayaran di bawah.</div>';
+}
+function readForm(){
+  const g=id=>document.getElementById(id), d=draft;
+  d.name=g('f_name').value.trim();d.phone=g('f_phone').value.trim();d.ic=g('f_ic').value.trim();d.source=g('f_src').value;d.handler=g('f_hand').value;
+  d.ci=g('f_ci').value;d.co=g('f_co').value;d.ciTime=g('f_cit').value;d.coTime=g('f_cot').value;d.adults=+g('f_ad').value||0;d.kids=+g('f_kid').value||0;d.unit=g('f_unit').value;
+  const cr=g('f_rate').value;d.customRate=cr===''?null:+cr;d.extra=+g('f_extra').value||0;d.extraNote=g('f_extran').value;d.discount=+g('f_disc').value||0;
+  d.balanceDue=g('f_due').value;d.damage=+g('f_dmg').value||0;d.notes=g('f_notes').value;d.cancelled=g('f_cancel').checked;
+  d.payments=[...document.querySelectorAll('.pay-row')].map(r=>({id:r.dataset.id,date:r.querySelector('.p-date').value,type:r.querySelector('.p-type').value,method:r.querySelector('.p-method').value,amount:+r.querySelector('.p-amt').value||0}));
+}
+function updateCalc(){
+  const c=calc(draft), pct=c.total>0?Math.min(100,c.paid/c.total*100):0, ov=overlapWith(draft);
+  $('#calc').innerHTML=`<div class="l"><span>Penginapan (${c.nights} malam)</span><b>${fmt(c.room)}</b></div>
+  <div class="l"><span>Tambahan + kerosakan − diskaun</span><b>${fmt((+draft.extra||0)+(+draft.damage||0)-(+draft.discount||0))}</b></div>
+  <div class="l tot"><span>Jumlah</span><b>${fmt(c.total)}</b></div>
+  <div class="l"><span>Dah bayar</span><b>${fmt(c.paid)}</b></div>
+  <div class="l"><span>Baki</span><b>${fmt(c.bal)}</b></div>
+  <div class="l"><span>Deposit tempahan (ditolak daripada jumlah)</span><b>${fmt(Math.min(settings.depositAmt,c.total))}</b></div>
+  <div class="bar"><i style="width:${pct}%"></i></div>
+  ${diffDays(draft.ci||'2000-01-01',draft.co||'2000-01-01')<=0?'<div class="warn">⚠️ Tarikh check-out mesti selepas check-in.</div>':''}
+  ${ov?`<div class="warn">⚠️ Bertindih dengan booking <b>${esc(ov.name)}</b> (${dmy(ov.ci)} → ${dmy(ov.co)}) di unit sama!</div>`:''}`;
+}
+async function submitBooking(){
+  readForm(); const d=draft;
+  if(!d.name){toast('Sila isi nama penyewa');return}
+  if(!(diffDays(d.ci,d.co)>0)){toast('Check-out mesti selepas check-in');return}
+  if(!d.balanceDue)d.balanceDue=d.ci;
+  const wasNew=d._new, prev=bookings.find(b=>b.id===d.id), prevSt=prev?status(prev):null;
+  delete d._new;
+  const i=bookings.findIndex(b=>b.id===d.id); if(i>=0)bookings[i]=d; else bookings.push(d);
+  const b=d; draft=null; $('#modal-root').innerHTML=''; render();
+  try{await dbSaveBooking(b);toast(wasNew?'Tempahan disimpan':'Dikemas kini')}catch(e){toast('Gagal simpan: '+(e.message||e));await loadAll().catch(()=>{});render();return}
+  if(status(b)==='paid'&&prevSt!=='paid'){confetti()}
+}
+function closeModal(){draft=null;$('#modal-root').innerHTML=''}
+
+/* ================= Export ================= */
+function csvText(){
+  const h=['Nama','Telefon','KP/Pasport','Unit','Check-in','Check-out','Malam','Dewasa','Kanak-kanak','Jumlah','Dibayar','Baki','Baki sebelum','Status','Caj kerosakan','Sumber','Diuruskan oleh','Nota'];
+  const q=v=>`"${String(v??'').replace(/"/g,'""')}"`;
+  const r=[...bookings].sort((a,b)=>a.ci<b.ci?-1:1).map(b=>{const c=calc(b);return[b.name,b.phone,b.ic,b.unit,b.ci,b.co,c.nights,b.adults,b.kids,c.total,c.paid,c.bal,b.balanceDue,ST[status(b)],b.damage,b.source,b.handler,b.notes].map(q).join(',')});
+  return[h.map(q).join(','),...r].join('\n');
+}
+function openText(title,text,filename){
+  $('#modal-root').innerHTML=`<div class="overlay" data-act="closeov"><div class="modal" onclick="event.stopPropagation()"><div class="row" style="justify-content:space-between"><h2>${title}</h2><button class="icon" data-act="close">✕</button></div><textarea class="big" id="exp" readonly>${esc(text)}</textarea><div class="row" style="margin-top:12px"><button class="btn" data-act="copyExp">Salin</button>${dlCap?`<button class="btn sec" data-act="dlExp" data-fn="${filename}">Muat turun</button>`:''}</div></div></div>`;
+}
+
+/* ================= Events ================= */
+document.addEventListener('click',async e=>{
+  if(e.target.closest('[data-stop]'))return;
+  const el=e.target.closest('[data-act]'); if(!el)return;
+  if(el.dataset.act==='closeov'&&e.target!==el)return;
+  const a=el.dataset.act, id=el.dataset.id;
+  if(a==='tab'){view=el.dataset.v;location.hash=view;render()}
+  else if(a==='prev'){cur.m--;if(cur.m<0){cur.m=11;cur.y--}render()}
+  else if(a==='next'){cur.m++;if(cur.m>11){cur.m=0;cur.y++}render()}
+  else if(a==='tdy'){const d=new Date();cur={y:d.getFullYear(),m:d.getMonth()};render()}
+  else if(a==='new'){if(!canEdit())openLogin();else openModal(newBooking(),true)}
+  else if(a==='login')openLogin();
+  else if(a==='newday'){if(!canEdit())openLogin();else openModal(newBooking({ci:el.dataset.date}),true)}
+  else if(a==='edit'){e.stopPropagation();const b=bookings.find(x=>x.id===id);if(b)openModal(b,false)}
+  else if(a==='close'||a==='closeov')closeModal();
+  else if(a==='theme'){const t=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=t;try{localStorage.setItem('hs-theme',t)}catch(_){}}
+  else if(a==='logout'){await sb.auth.signOut();session=null;render();toast('Dah log keluar')}
+  else if(a==='signup'){const em=$('#le').value,pw=$('#lp').value;if(!em||pw.length<6){toast('Isi emel & kata laluan (min 6)');return}const{error}=await sb.auth.signUp({email:em,password:pw});toast(error?error.message:'Akaun dibuat. Semak emel jika perlu sahkan, kemudian log masuk.')}
+  else if(a==='addDep'||a==='addBal'||a==='addPay'){
+    readForm();const c=calc(draft);
+    const amt=a==='addDep'?Math.min(settings.depositAmt,Math.max(0,c.total)):a==='addBal'?Math.max(0,c.bal):0;
+    draft.payments.push({id:uid(),date:today(),type:a==='addDep'?'Deposit':a==='addBal'?(c.paid>0?'Baki':'Bayaran penuh'):'Lain-lain',method:'Pindahan bank',amount:amt});
+    renderPays();updateCalc();
+  }
+  else if(a==='rmPay'){readForm();draft.payments=draft.payments.filter(p=>p.id!==id);renderPays();updateCalc()}
+  else if(a==='del'){
+    if(el.dataset.sure!=='1'){el.dataset.sure='1';el.textContent='Pasti? Tekan lagi untuk padam';return}
+    const did=draft.id;bookings=bookings.filter(b=>b.id!==did);closeModal();render();
+    try{await dbDeleteBooking(did);toast('Dipadam')}catch(err){toast('Gagal padam: '+err.message);await loadAll().catch(()=>{});render()}
+  }
+  else if(a==='csv')openText('Export CSV',csvText(),'tempahan-homestay.csv');
+  else if(a==='json')openText('Backup JSON',JSON.stringify({settings,bookings},null,2),'backup-homestay.json');
+  else if(a==='copyExp'){const t=$('#exp');t.select();try{await navigator.clipboard.writeText(t.value);toast('Disalin')}catch(_){document.execCommand&&document.execCommand('copy');toast('Disalin (atau tekan Ctrl+C)')}}
+  else if(a==='dlExp'){try{await dlCap.save({filename:el.dataset.fn,data:$('#exp').value})}catch(_){}}
+});
+document.addEventListener('input',e=>{
+  if(e.target.closest('#bf')&&draft){
+    if(e.target.id==='f_ci'){const c=$('#f_ci').value,o=$('#f_co');if(c&&o.value<=c)o.value=addDays(c,1)}
+    readForm();updateCalc();
+  }
+  if(e.target.id==='q'){q=e.target.value;const p=e.target.selectionStart;render();const n=$('#q');n.focus();n.setSelectionRange(p,p)}
+});
+document.addEventListener('change',e=>{
+  if(e.target.id==='stf'){stFilter=e.target.value;render()}
+  if(e.target.id==='unitSel'){unitFilter=e.target.value;render()}
+});
+document.addEventListener('submit',async e=>{
+  e.preventDefault();
+  if(e.target.id==='bf')submitBooking();
+  else if(e.target.id==='loginForm'){
+    const{data,error}=await sb.auth.signInWithPassword({email:$('#le').value,password:$('#lp').value});
+    if(error){toast(error.message);return}
+    session=data.session;closeModal();render();toast('Log masuk berjaya');
+  }
+  else if(e.target.id==='setForm'){
+    if(!canEdit())return;
+    const v=id=>$('#'+id).value, list=s=>s.split(',').map(x=>x.trim()).filter(Boolean);
+    settings={...settings,name:v('s_name')||'Homestay Kami',wdRate:+v('s_wd')||0,wkRate:+v('s_wk')||0,depositAmt:+v('s_dp')||0,ciTime:v('s_ci'),coTime:v('s_co'),units:list(v('s_units')).length?list(v('s_units')):['Seluruh rumah'],owners:list(v('s_owners'))};
+    render();try{await dbSaveSettings();toast('Tetapan disimpan')}catch(err){toast('Gagal simpan: '+err.message)}
+  }
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('#modal-root').innerHTML)closeModal()});
+window.addEventListener('hashchange',()=>{const v=location.hash.slice(1);if(['kalendar','senarai','duit','setting'].includes(v)&&v!==view){view=v;render()}});
+
+/* ================= Boot ================= */
+async function boot2(){
+  try{await loadAll();subscribe()}catch(e){toast('Tak boleh muat data: '+(e.message||e))}
+  render();
+}
+(async function boot(){
+  try{const t=localStorage.getItem('hs-theme');if(t)document.documentElement.dataset.theme=t}catch(_){}
+  if(window.claude&&claude.use){claude.use('downloads').then(d=>{dlCap=d}).catch(()=>{})}
+  if(cfg.SUPABASE_URL&&cfg.SUPABASE_ANON_KEY&&window.supabase){
+    sb=window.supabase.createClient(cfg.SUPABASE_URL,cfg.SUPABASE_ANON_KEY);mode='supabase';
+    const{data}=await sb.auth.getSession();session=data.session;
+    sb.auth.onAuthStateChange((_ev,s)=>{session=s});
+    await boot2();return;
+  }
+  loadLocal();render();
+})();
+</script>
+</body>
+</html>
