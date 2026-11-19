@@ -280,7 +280,7 @@ function render(){
 function authMsg(t,ok){const m=$('#authmsg');if(m){m.textContent=t;m.style.color=ok?'var(--lime)':'var(--red)'}toast(t)}
 async function authCall(fn){try{return await fn()}catch(e){authMsg('Ralat sambungan: '+(e&&e.message||e));return null}}
 function openLogin(){
-  $('#modal-root').innerHTML=`<div class="overlay" data-act="closeov"><div class="modal" style="max-width:420px" onclick="event.stopPropagation()"><div class="row" style="justify-content:space-between"><h2>Log masuk</h2><button class="icon" data-act="close">✕</button></div><p style="color:var(--mut);margin:6px 0 0">Anda boleh lihat tempahan tanpa log masuk. Log masuk hanya untuk tambah / edit (emel yang dibenarkan sahaja).</p>
+  $('#modal-root').innerHTML=`<div class="overlay" data-act="closeov"><div class="modal" style="max-width:420px"><div class="row" style="justify-content:space-between"><h2>Log masuk</h2><button class="icon" data-act="close">✕</button></div><p style="color:var(--mut);margin:6px 0 0">Anda boleh lihat tempahan tanpa log masuk. Log masuk hanya untuk tambah / edit (emel yang dibenarkan sahaja).</p>
 <form id="loginForm"><input type="email" id="le" placeholder="Emel" required autocomplete="email" style="margin-top:12px"><input type="password" id="lp" placeholder="Kata laluan (min 6 aksara)" required minlength="6" autocomplete="current-password" style="margin-top:10px">
 <div class="row" style="margin-top:14px"><button class="btn" type="submit">Log masuk</button><button class="btn sec" type="button" data-act="signup">Daftar akaun</button></div>
 <div id="authmsg" role="status" style="margin-top:12px;font-weight:600;font-size:14px;min-height:20px"></div>
@@ -353,7 +353,7 @@ function newBooking(pre={}){
 function openModal(b,isNew){
   draft=JSON.parse(JSON.stringify(b)); draft._new=isNew;
   const d=draft, sel=(arr,v)=>arr.map(x=>`<option ${x===v?'selected':''}>${esc(x)}</option>`).join('');
-  $('#modal-root').innerHTML=`<div class="overlay" data-act="closeov"><form class="modal" id="bf" onclick="event.stopPropagation()">
+  $('#modal-root').innerHTML=`<div class="overlay" data-act="closeov"><form class="modal" id="bf">
   <div class="row" style="justify-content:space-between"><h2>${isNew?'Tempahan baru':'Edit tempahan'}</h2><button type="button" class="icon" data-act="close">✕</button></div>
   <div class="blk"><h4>Penyewa</h4><div class="fg">
     <div class="full"><label>Nama penyewa *</label><input id="f_name" value="${esc(d.name)}" placeholder="Cth: Ahmad bin Ali" required></div>
@@ -438,7 +438,7 @@ function csvText(){
   return[h.map(q).join(','),...r].join('\n');
 }
 function openText(title,text,filename){
-  $('#modal-root').innerHTML=`<div class="overlay" data-act="closeov"><div class="modal" onclick="event.stopPropagation()"><div class="row" style="justify-content:space-between"><h2>${title}</h2><button class="icon" data-act="close">✕</button></div><textarea class="big" id="exp" readonly>${esc(text)}</textarea><div class="row" style="margin-top:12px"><button class="btn" data-act="copyExp">Salin</button>${dlCap?`<button class="btn sec" data-act="dlExp" data-fn="${filename}">Muat turun</button>`:''}</div></div></div>`;
+  $('#modal-root').innerHTML=`<div class="overlay" data-act="closeov"><div class="modal"><div class="row" style="justify-content:space-between"><h2>${title}</h2><button class="icon" data-act="close">✕</button></div><textarea class="big" id="exp" readonly>${esc(text)}</textarea><div class="row" style="margin-top:12px"><button class="btn" data-act="copyExp">Salin</button>${dlCap?`<button class="btn sec" data-act="dlExp" data-fn="${filename}">Muat turun</button>`:''}</div></div></div>`;
 }
 
 /* ================= Events ================= */
