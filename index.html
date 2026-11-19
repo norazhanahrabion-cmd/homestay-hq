@@ -3,6 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0b1020">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
 <title>Homestay D'Hutan · Tempahan</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -193,7 +196,7 @@ const uid=()=>(crypto.randomUUID?crypto.randomUUID():'xxxxxxxx-xxxx-4xxx-yxxx-xx
 const LS='homestay-hq-v1';
 
 /* ================= State ================= */
-const DEFAULT_SETTINGS={name:'Homestay D\'Hutan',units:['Seluruh rumah'],owners:['Saya','Partner'],wdRate:300,wkRate:300,depositAmt:150,ciTime:'15:00',coTime:'12:00'};
+const DEFAULT_SETTINGS={people:{},name:'Homestay D\'Hutan',units:['Seluruh rumah'],owners:['Saya','Partner'],wdRate:300,wkRate:300,depositAmt:150,ciTime:'15:00',coTime:'12:00'};
 let settings={...DEFAULT_SETTINGS};
 let bookings=[];
 let expenses=[];
@@ -280,14 +283,13 @@ function subscribe(){
 
 /* ================= Notifikasi ================= */
 const me=()=>((session&&session.user&&session.user.email)||'').toLowerCase();
-const who=e=>e?String(e).split('@')[0]:'Seseorang';
+const who=e=>{const k=String(e||'').toLowerCase();return(settings.people&&settings.people[k])||(k?k.split('@')[0]:'Seseorang')};
 function popup(title,msg,id){
   const box=$('#pops'); if(!box)return;
   const el=document.createElement('div'); el.className='pop';
   el.innerHTML=`<b>${esc(title)}</b><span>${esc(msg)}</span>`;
   el.onclick=()=>{el.remove();if(id){const b=bookings.find(x=>x.id===id);if(b&&canEdit())openModal(b,false)}};
   box.appendChild(el); setTimeout(()=>el.remove(),10000);
-  try{if(document.hidden&&window.Notification&&Notification.permission==='granted')new Notification(title,{body:msg,icon:'logo.png'})}catch(e){}
 }
 function snap(){
   const b={}; bookings.forEach(x=>{const c=calc(x);b[x.id]={ua:x.updatedAt||'',paid:c.paid,dep:c.dep,cancel:!!x.cancelled}});
@@ -317,6 +319,47 @@ function summarizeMissed(){
     if(items.length)popup('Kemas kini sejak kali terakhir',`${items.length} perubahan oleh ${[...new Set(items.map(i=>who(i.by)))].join(', ')}: ${items.slice(0,3).map(i=>i.x).join(', ')}${items.length>3?'…':''}`);
   }
   try{localStorage.setItem(k,new Date().toISOString())}catch(e){}
+}
+
+
+/* ================= Push peranti ================= */
+const b64ToU8=s=>{s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return Uint8Array.from(atob(s),c=>c.charCodeAt(0))};
+async function pushPublicKey(){
+  const c=await sb.from('app_config').select('value').eq('key','vapid_public').maybeSingle();
+  if(c.data&&c.data.value)return c.data.value;
+  const r=await sb.functions.invoke('notify',{body:{}});
+  return r.data&&r.data.pub;
+}
+async function savePushSub(sub){
+  const j=sub.toJSON();
+  const{error}=await sb.from('push_subscriptions').upsert({endpoint:j.endpoint,email:me(),data:j},{onConflict:'endpoint'});
+  if(error)throw error;
+}
+async function enablePush(){
+  if(!sb||!(session&&allowed===true)){toast('Log masuk dulu');return}
+  if(!('serviceWorker' in navigator)||!('PushManager' in window)||!('Notification' in window)){toast('Peranti ini belum sokong push. Di iPhone: Share > Add to Home Screen, kemudian buka dari ikon itu.');return}
+  if(Notification.permission==='denied'){toast('Notifikasi disekat. Benarkan di tetapan pelayar.');return}
+  try{
+    const perm=await Notification.requestPermission();
+    if(perm!=='granted'){toast('Notifikasi tidak dibenarkan');return}
+    const reg=await navigator.serviceWorker.register('sw.js');
+    await navigator.serviceWorker.ready;
+    const key=await pushPublicKey();
+    if(!key){toast('Tak dapat kunci notifikasi');return}
+    let sub=await reg.pushManager.getSubscription();
+    if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64ToU8(key)});
+    await savePushSub(sub);
+    toast('Notifikasi peranti dihidupkan');
+  }catch(e){toast('Gagal hidupkan notifikasi: '+(e.message||e))}
+}
+async function syncPush(){
+  try{
+    if(!sb||!('serviceWorker' in navigator)||!('PushManager' in window)||Notification.permission!=='granted')return;
+    const reg=await navigator.serviceWorker.getRegistration('sw.js')||await navigator.serviceWorker.register('sw.js');
+    await navigator.serviceWorker.ready;
+    const sub=await reg.pushManager.getSubscription();
+    if(sub)await savePushSub(sub);
+  }catch(e){}
 }
 
 /* ================= UI helpers ================= */
@@ -366,7 +409,7 @@ async function afterAuth(){
   if(!session){allowed=false;bookings=[];expenses=[];render();return}
   const r=await authCall(()=>sb.rpc('is_allowed'));
   allowed=!!(r&&!r.error&&r.data===true);
-  if(allowed){try{await loadAll();subscribe();summarizeMissed()}catch(e){toast('Tak boleh muat data: '+(e.message||e))}}
+  if(allowed){try{await loadAll();subscribe();summarizeMissed();syncPush()}catch(e){toast('Tak boleh muat data: '+(e.message||e))}}
   else{bookings=[];expenses=[]}
   render();
 }
@@ -576,12 +619,7 @@ document.addEventListener('click',async e=>{
   else if(a==='newday'){if(!canEdit())openLogin();else openModal(newBooking({ci:el.dataset.date}),true)}
   else if(a==='edit'){e.stopPropagation();const b=bookings.find(x=>x.id===id);if(b)openModal(b,false)}
   else if(a==='close'||a==='closeov')closeModal();
-  else if(a==='bell'){
-    if(!('Notification' in window)){toast('Pelayar ini tak sokong notifikasi peranti');return}
-    if(Notification.permission==='granted'){toast('Notifikasi peranti sudah hidup');return}
-    if(Notification.permission==='denied'){toast('Notifikasi disekat. Benarkan di tetapan pelayar');return}
-    const p=await Notification.requestPermission();toast(p==='granted'?'Notifikasi peranti dihidupkan':'Tidak dibenarkan');
-  }
+  else if(a==='bell'){await enablePush()}
   else if(a==='theme'){const t=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=t;try{localStorage.setItem('hs-theme',t)}catch(_){}}
   else if(a==='logout'){await sb.auth.signOut();session=null;allowed=false;bookings=[];expenses=[];render();toast('Dah log keluar')}
   else if(a==='forgot'){e.preventDefault();const em=$('#le').value.trim();if(!em){authMsg('Taip emel anda dulu di ruang Emel');return}authMsg('Menghantar…',true);const r=await authCall(()=>sb.auth.resetPasswordForEmail(em,{redirectTo:location.href.split('#')[0]}));if(r)authMsg(r.error?r.error.message:'Pautan tetapan semula dihantar. Semak emel anda (termasuk Spam).',!r.error)}

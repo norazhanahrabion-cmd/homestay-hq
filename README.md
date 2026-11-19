@@ -18,3 +18,9 @@ Push folder ini ke repo, Settings > Pages > Deploy from branch (main / root).
 
 ## Nota privasi
 Kerana paparan terbuka, sesiapa yang ada pautan boleh baca tempahan (termasuk telefon / KP). Elakkan isi No. KP jika tak perlu.
+
+## Notifikasi (push peranti + emel)
+- Setiap tempahan baharu, bayaran, deposit, pembatalan dan kos baharu dimasukkan ke jadual `notifications` oleh trigger pangkalan data.
+- Fungsi Edge `notify` menghantar push ke peranti yang telah menekan ikon loceng, dan emel kepada emel dalam `allowed_emails` melalui Brevo.
+- Rahsia `BREVO_API_KEY` ditetapkan di Supabase > Edge Functions > Secrets. Emel pengirim di jadual `app_config` (`sender_email`) mesti telah disahkan di Brevo.
+- iPhone: buka web di Safari, Share > Add to Home Screen, buka dari ikon itu, kemudian tekan loceng.
