@@ -148,8 +148,13 @@ td small{color:var(--mut);display:block}
 textarea.big{min-height:200px;font-family:ui-monospace,monospace;font-size:12.5px}
 #app:has(.landing){padding:0;max-width:none}
 .landing{position:fixed;inset:0;z-index:5;display:grid;place-items:center;text-align:center;padding:24px;color:#fff;
-  background:linear-gradient(rgba(6,12,24,.5),rgba(6,12,24,.8)),url('homestay.jpg') center/cover no-repeat,linear-gradient(135deg,#0e3b2c,#0b1020)}
-.landing-in{max-width:620px}
+  background:linear-gradient(135deg,#0e3b2c,#0b1020);overflow:hidden}
+.slides,.shade{position:absolute;inset:0}
+.slide{position:absolute;inset:0;background-size:cover;background-position:center;opacity:0;animation:slideshow 36s infinite}
+.shade{background:linear-gradient(rgba(6,12,24,.5),rgba(6,12,24,.8))}
+@keyframes slideshow{0%{opacity:0;transform:scale(1)}4%{opacity:1}16.66%{opacity:1}20.66%{opacity:0;transform:scale(1.07)}100%{opacity:0;transform:scale(1.07)}}
+@media (prefers-reduced-motion:reduce){.slide:first-child{opacity:1}}
+.landing-in{max-width:620px;position:relative;z-index:1}
 .lg{display:block;width:120px;height:120px;border-radius:50%;margin:0 auto 18px;box-shadow:0 10px 40px rgba(0,0,0,.45)}
 .lg.sm{width:46px;height:46px;margin:0;box-shadow:0 4px 14px rgba(0,0,0,.3)}
 .landing h1{font-size:clamp(30px,6vw,52px);line-height:1.1;margin-bottom:26px;text-shadow:0 4px 24px rgba(0,0,0,.5)}
@@ -307,7 +312,7 @@ function authMsg(t,ok){const m=$('#authmsg');if(m){m.textContent=t;m.style.color
 async function authCall(fn){try{return await fn()}catch(e){authMsg('Ralat sambungan: '+(e&&e.message||e));return null}}
 function landingHtml(){
   const denied=session&&allowed===false;
-  return`<div class="landing"><div class="landing-in"><img class="lg" src="logo.png" alt="Homestay D'Hutan" onerror="this.style.display='none'"><h1>Selamat Datang ke<br>Homestay D'Hutan</h1>${allowed===null&&session?'':denied?'<p>Akaun ini tiada kebenaran untuk melihat tempahan.</p><button class="btn sec" data-act="logout">Log keluar</button>':'<button class="btn" data-act="login">Log masuk</button>'}</div></div>`;
+  return`<div class="landing"><div class="slides">${[1,2,3,4,5,6].map(i=>`<div class="slide" style="background-image:url('bg${i}.jpg');animation-delay:${(i-1)*6}s"></div>`).join('')}</div><div class="shade"></div><div class="landing-in"><img class="lg" src="logo.png" alt="Homestay D'Hutan" onerror="this.style.display='none'"><h1>Selamat Datang ke<br>Homestay D'Hutan</h1>${allowed===null&&session?'':denied?'<p>Akaun ini tiada kebenaran untuk melihat tempahan.</p><button class="btn sec" data-act="logout">Log keluar</button>':'<button class="btn" data-act="login">Log masuk</button>'}</div></div>`;
 }
 async function afterAuth(){
   if(!session){allowed=false;bookings=[];expenses=[];render();return}
