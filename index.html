@@ -200,7 +200,7 @@ const DEFAULT_SETTINGS={people:{},name:'Homestay D\'Hutan',units:['Seluruh rumah
 let settings={...DEFAULT_SETTINGS};
 let bookings=[];
 let expenses=[];
-const CATS=['Pembersihan','Mesin rumput','Dobi','Lain-lain'];
+const CATS=['Pembersihan','Mesin rumput','Dobi','Bil TNB','Bil SAJ','Bil WiFi','Lain-lain'];
 let view=(location.hash.slice(1)||'kalendar');
 if(!['kalendar','senarai','duit','urus','setting'].includes(view))view='kalendar';
 let cur=(()=>{const d=new Date();return{y:d.getFullYear(),m:d.getMonth()}})();
